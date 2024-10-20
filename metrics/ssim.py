@@ -56,5 +56,7 @@ class ssim(Module):
     
     def forward(self, x: Tensor, y: Tensor) -> Tensor:
         """
+        Compute an unrestricted version of SSIM that
+        takes values between -1 and 3.
         """
         return sum([self.l(x, y), self.c(x, y), self.s(x, y)])

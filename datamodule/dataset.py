@@ -50,6 +50,9 @@ class Image(Dataset):
 
 
 class PairedImages:
+    """
+    A pair of images served together conjointly.
+    """
     def __init__(self, *imagepaths: str,
                  t_size: tuple[int, int] = (100, 2),
                  pad: tuple[int, int] = (0, 0)) -> None:
@@ -73,6 +76,9 @@ class PairedImages:
         return tuple((source[index] for source in self.sources))
 
     def __len__(self):
+        """
+        The length of the pair is the length of a single image.
+        """
         return self.sources[0].__len__()
 
 

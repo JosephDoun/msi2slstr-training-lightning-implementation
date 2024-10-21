@@ -8,6 +8,8 @@ from torch import Tensor
 from torch.utils.data import Dataset
 
 
+
+
 class Image(Dataset):
     """
     Class holding image source and maps indices to tiles.
@@ -68,16 +70,13 @@ class PairedImages:
         self.tile = self.sources[0].tile
 
     def __getitem__(self, index) -> tuple[tuple[Tensor], tuple[int, str, str]]:
-        return tuple(tuple((source[index] for source in self.sources)),
-                     # Metadata.
-                     (index, self.date, self.tile))
+        return tuple((source[index] for source in self.sources))
 
     def __len__(self):
         return self.sources[0].__len__()
 
 
-def get_msi2slstr_data(dirname: str, *,
-                       t_size: tuple[int] = (100, 2),
+def get_msi2slstr_data(dirname: str, *, t_size: tuple[int] = (100, 2),
                        pad: int = (0, 0)):
     """
     Gather data sources from msi2slstr directory.
@@ -109,18 +108,45 @@ def get_array_coords_list(
 
 
 class msi2slstr_dataset(Dataset):
+    """
+    The msi2slstr dataset assembly class. Serves the dataset from a directory
+    populated by the msi2slstr-datagen scripts.
+
+    :param dirname: The root directory path of the msi2slstr data,
+        defaults to `data`.
+    :type dirname: str
+    """
     def __init__(self, dirname: str = "data", *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.sources = [pair for pair in get_msi2slstr_data(dirname=dirname,
-                                                            t_size=(100, 2))]
+        self.sources: list[PairedImages] = [pair for pair in
+                                            get_msi2slstr_data(dirname=dirname,
+                                                               t_size=(100, 2),
+                                                               pad=(0, 0))]
 
-    def _get_source(self, index):
-        return index // len(self.source[0][1]), index % len(self.source[0][1])
+    def _get_source(self, index) -> tuple[int, int]:
+        """
+        :returns: The index of the data source to probe and the corresponding
+            tile index of the selected data source.
+        :rtype: tuple[int, int]
+        """
+        return index // len(self.sources[0]), index % len(self.sources[0])
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> tuple[tuple[Tensor, Tensor],
+                                          tuple[int, str, str]]:
+        """
+        :returns: The two coupled patches of images and metadata related to
+            the data sources to be used for logging. The metadata consist of
+            the sample `index` value, the acquisition `date` and the 
+            corresponding `tile` of the Sentinel-2 grid.
+        :rtype: tuple[tuple[Tensor, Tensor], tuple[int, str, str]]
+        """
         source, index = self._get_source(index)
-        sen2, sen3 = self.sources[source]
-        return (index, sen2.date, sen2[index], sen3[index])
+        pair = self.sources[source]
+        return pair[index], (index, pair.date, pair.tile)
     
     def __len__(self):
+        """
+        :returns: Sum of individual source lengths
+        :rtype: int
+        """
         return sum(map(lambda x: len(x), self.sources))

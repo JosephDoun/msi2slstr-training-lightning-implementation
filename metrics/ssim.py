@@ -12,7 +12,7 @@ class ssim(Module):
     :param dims: The dimensions to calculate the loss over.
     :type dims: tuple[int]
     """
-    def __init__(self, dims: tuple=(-1, -2), *args, **kwargs) -> None:
+    def __init__(self, dims: tuple = (-1, -2), *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.dims = dims
         self.C = 1e-10
@@ -23,7 +23,7 @@ class ssim(Module):
             a.mul(b).mul(2).add(self.C)
             # Denominator.
             .div(a.pow(2).add(b.pow(2)).add(self.C))
-            ).squeeze(self.dims)
+            .squeeze(self.dims))
 
     def l(self, x: Tensor, y: Tensor) -> Tensor:
         return self._similarity(x.mean(self.dims, keepdim=True),
@@ -41,8 +41,8 @@ class ssim(Module):
             # Numerator.
             # normalized x.
             x.sub(x.mean(self.dims, keepdim=True))
-            .mul(# normalized y.
-                y.sub(y.mean(self.dims, keepdim=True)))
+            .mul(  # normalized y.
+                   y.sub(y.mean(self.dims, keepdim=True)))
             .mean(self.dims, keepdim=True)
             # .add(self.C)
             # Denominator.

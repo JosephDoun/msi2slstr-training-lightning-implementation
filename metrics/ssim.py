@@ -12,8 +12,8 @@ class ssim(Module):
     :param dims: The dimensions to calculate the loss over.
     :type dims: tuple[int]
     """
-    def __init__(self, dims: tuple = (-1, -2), *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, dims: tuple = (-1, -2)) -> None:
+        super().__init__()
         self.dims = dims
         self.C = 1e-10
 

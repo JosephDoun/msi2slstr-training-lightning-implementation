@@ -14,5 +14,4 @@ class TestMSI2SLSTRLoss(unittest.TestCase):
     
     def test_run(self):
         r = self.loss(self.a, self.b, self.c, self.d, self.e)
-        print(r)
         self.assertTrue(r.shape == (5, 12))

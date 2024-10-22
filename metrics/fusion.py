@@ -1,8 +1,9 @@
-from .ssim import ssim
 from torch import Tensor
 from torch import concat
 
 from transformations.resampling import DSamplingModule
+
+from .ssim import ssim
 
 
 class msi2slstr_loss(ssim):
@@ -17,6 +18,8 @@ class msi2slstr_loss(ssim):
     def forward(self, x: Tensor, Y_hat: Tensor, y: Tensor,
                 thermal_estimate_y: Tensor, thermal_estimate_x: Tensor):
         """
+        :returns: Collective loss, energy loss and thermal loss in a 3-tuple.
+        :rtype: tuple
         """
         x = concat([x[:, [2, 3, 8, 10, 11, 12]], thermal_estimate_x], dim=-3)
         structure = self.s(x, Y_hat)

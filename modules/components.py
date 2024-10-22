@@ -2,12 +2,51 @@ import torch.nn as nn
 
 from torch import einsum
 from torch import concat
+from torch import Tensor
 
 from . import CONFIG
 
 
+class OpticalToThermal(nn.Module):
+    def __init__(self, _in: int, _out: int, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.module = nn.Sequential(
+            nn.BatchNorm2d(_in, momentum=CONFIG['BATCHNORM_MOMENT']),
+            nn.Conv2d(_in, 32, 1),
+            nn.BatchNorm2d(32,  momentum=CONFIG['BATCHNORM_MOMENT'],),
+            nn.ReLU(True),
+            nn.Conv2d(32, 64, 1),
+            nn.BatchNorm2d(64,  momentum=CONFIG['BATCHNORM_MOMENT']),
+            nn.ReLU(True),
+            nn.Conv2d(64, 32, 1),
+            nn.BatchNorm2d(32,  momentum=CONFIG['BATCHNORM_MOMENT']),
+            nn.ReLU(True),
+            nn.Conv2d(32, _out, 1),
+        )
+
+    def forward(self, x):
+        return self.module(x)
+
+
+class Scale2D(nn.Module):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    def forward(self, x: Tensor, y: Tensor):
+        """
+        Linearly project `x` to the radiometric scale of `y`;
+        """
+        scaled = (x *
+                  y.std((-1, -2), keepdim=True) /
+                  x.std((-1, -2), keepdim=True))
+        return (scaled -
+                scaled.mean((-1, -2), keepdim=True) +
+                y.mean((-1, -2), keepdim=True))
+
+
 class UpsamplingBlock(nn.Module):
-    def __init__(self, _in: int, _out: int, size: int, *args, **kwargs) -> None:
+    def __init__(self, _in: int, _out: int, size: int,
+                 *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.up = nn.Upsample((size, size), mode='nearest')
         self.concat = CrossGatedConcat(_in, _out, _out // 2)

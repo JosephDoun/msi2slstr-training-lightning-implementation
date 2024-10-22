@@ -10,14 +10,13 @@ class UpsamplingBlock(nn.Module):
     def __init__(self, _in: int, _out: int, size: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.up = nn.Upsample((size, size), mode='nearest')
-        self.module = nn.Sequential(
-            CrossGatedConcat(_in, _out, _out),
-            DualConv(_in + _out, _out, stride=1)
-        )
+        self.concat = CrossGatedConcat(_in, _out, _out // 2)
+        self.prop = DualConv(_in + _out // 2, _out, stride=1)
 
     def forward(self, x, connection):
         x = self.up(x)
-        return self.module(x, connection)
+        x = self.concat(x, connection)
+        return self.prop(x)
 
 
 class DownsamplingBlock(nn.Module):
@@ -34,10 +33,10 @@ class Head(nn.Module):
     def __init__(self, _in: int, _out: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.module = nn.Sequential(
-            ASPP(_in, _in*2, 1, 3, 6),
-            nn.BatchNorm2d(_in*2, momentum=CONFIG['BATCHNORM_MOMENT']),
+            ASPP(_in, _in // 2, 1, 3, 6),
+            nn.BatchNorm2d(_in // 2, momentum=CONFIG['BATCHNORM_MOMENT']),
             nn.ReLU(True),
-            nn.Conv2d(_in*2, _out, 1, padding=0),
+            nn.Conv2d(_in // 2, _out, 1, padding=0),
             nn.Softplus(beta=.2, threshold=.1)
         )
 
@@ -69,7 +68,7 @@ class Stem(nn.Module):
             nn.Conv2d(_out, _out, kernel_size=3, padding=1, groups=2,
                       padding_mode=CONFIG["PADDING_MODE"])
         )
-        self.residual = ResidualProj(_in, _out, stride=1)
+        self.residual = ResidualProj(2*_in, _out, stride=1, groups=2)
 
     def forward(self, x, y):
         y = self.embed(y)
@@ -81,12 +80,15 @@ class Embedding(nn.Module):
     def __init__(self, _in: int, _out: int, size: int,
                  *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.up = nn.Upsample((size, size), mode="nearest")
         self.module = nn.Sequential(
+            nn.Upsample((size, size), mode="nearest"),
             nn.BatchNorm2d(_in, momentum=CONFIG["BATCHNORM_MOMENT"]),
             nn.Conv2d(_in, _out, kernel_size=3, stride=1, padding=25,
                       dilation=25, padding_mode=CONFIG["PADDING_MODE"])
         )
+
+    def forward(self, x):
+        return self.module(x)
 
 
 class CrossGatedConcat(nn.Module):
@@ -200,7 +202,7 @@ class ResidualProj(nn.Module):
                  *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.module = nn.Sequential(
-            nn.Conv2d(_in, _out, stride=stride, groups=groups),
+            nn.Conv2d(_in, _out, 1, stride=stride, groups=groups),
             nn.BatchNorm2d(_out, momentum=CONFIG['BATCHNORM_MOMENT'])
         )
 

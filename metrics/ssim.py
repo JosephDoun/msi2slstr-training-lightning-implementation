@@ -60,3 +60,11 @@ class ssim(Module):
         takes values between -1 and 3.
         """
         return sum([self.l(x, y), self.c(x, y), self.s(x, y)])
+    
+    def evaluate(self, x: Tensor, y: Tensor) -> Tensor:
+        """
+        Real evaluation of a pair's structural similarity.
+        """
+        return (self.l(x, y).clamp(0) *
+                self.c(x, y) *
+                self.s(x, y).clamp(0))

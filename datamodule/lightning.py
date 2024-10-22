@@ -13,7 +13,7 @@ class msi2slstr_datamodule(LightningDataModule):
     """
     def __init__(self, batch_size: int = 32) -> None:
         super().__init__()
-        self.batch_size = batch_size
+        self.save_hyperparameters()
 
     def prepare_data(self) -> None:
         super().prepare_data()
@@ -24,14 +24,17 @@ class msi2slstr_datamodule(LightningDataModule):
                          Generator().manual_seed(0))
 
     def train_dataloader(self) -> DataLoader:
-        return DataLoader(self.train, batch_size=self.batch_size,
-                          pin_memory=True, num_workers=2)
+        return DataLoader(self.train, batch_size=self.hparams.batch_size,
+                          # Gdal reader is not thread safe.
+                          pin_memory=True, num_workers=1)
     
     def val_dataloader(self) -> DataLoader:
-        return DataLoader(self.val, batch_size=8, num_workers=2)
+        return DataLoader(self.val, batch_size=self.hparams.batch_size,
+                          # Gdal reader is not thread safe.
+                          pin_memory=True, num_workers=1)
     
     def test_dataloader(self) -> DataLoader:
-        return DataLoader(self.test, batch_size=8)
+        return DataLoader(self.test, batch_size=self.hparams.batch_size)
     
     def on_exception(self, exception: BaseException) -> None:
         return super().on_exception(exception)

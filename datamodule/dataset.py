@@ -5,6 +5,9 @@ from osgeo.gdal import Dataset as GDataset
 from osgeo.gdal import GA_ReadOnly
 
 from torch import Tensor
+from torch import from_numpy
+from torch import float32
+
 from torch.utils.data import Dataset
 
 
@@ -42,7 +45,9 @@ class Image(Dataset):
         """
         Get i-th tile of image.
         """
-        return self.dataset.ReadAsArray(*self.tile_coords[index])
+        return (from_numpy(self.dataset.ReadAsArray(*self.tile_coords[index]))
+                .to(float32)
+                .clamp(0))
 
     def __len__(self):
         return (self.dataset.RasterXSize // self.t_size) *\
@@ -73,7 +78,10 @@ class PairedImages:
         self.tile = self.sources[0].tile
 
     def __getitem__(self, index) -> tuple[tuple[Tensor], tuple[int, str, str]]:
-        return tuple((source[index] for source in self.sources))
+        # Specifically handling 2 sources for this usecase of Sentinel-2
+        # and Sentinel-3 images because we need to emit angles.
+        # TODO generalize function.
+        return (self.sources[0][index], self.sources[1][index][:12])
 
     def __len__(self):
         """
@@ -148,7 +156,7 @@ class msi2slstr_dataset(Dataset):
         """
         source, index = self._get_source(index)
         pair = self.sources[source]
-        return pair[index], (index, pair.date, pair.tile)
+        return pair[index], (pair.date, pair.tile)
     
     def __len__(self):
         """

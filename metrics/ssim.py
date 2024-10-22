@@ -44,13 +44,13 @@ class ssim(Module):
             .mul(  # normalized y.
                    y.sub(y.mean(self.dims, keepdim=True)))
             .mean(self.dims, keepdim=True)
-            # .add(self.C)
+            # .add(self.C * .5)
             # Denominator.
             .div(
                     x.std(self.dims, keepdim=True)
                     .mul(y.std(self.dims, keepdim=True))
                     
-                    .add(self.C)
+                    .add(self.C * .5)
 
                 )).squeeze(self.dims)
     

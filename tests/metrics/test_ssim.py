@@ -5,7 +5,7 @@ from metrics.ssim import ssim
 
 
 class TestSSIM(unittest.TestCase):
-    a = torch.randn(4, 5, 10, 20)
+    a = torch.randn(4, 5, 10, 20) + .5
     ssim = ssim()
 
     @classmethod

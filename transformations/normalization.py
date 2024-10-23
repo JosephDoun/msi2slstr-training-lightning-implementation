@@ -58,4 +58,5 @@ class Normalizer:
 
 
 def channel_stretch(x: Tensor):
-    return x.sub(x.amin((-1, -2))).div(x.amax((-1, -2)) + 1e-10)
+    return x.sub(x.amin((-1, -2), keepdim=True)).div(
+        x.amax((-1, -2), keepdim=True) + 1e-10)

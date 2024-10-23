@@ -1,4 +1,6 @@
 from torch import Tensor
+from torch import tensor
+from torch import float32
 
 
 class Normalizer:
@@ -26,8 +28,8 @@ class Normalizer:
 
     def __init__(self, scale: tuple[float], offset: tuple[float], *,
                  e: float = 1e-15) -> None:
-        self.offset = Tensor(offset).reshape(1, len(offset), 1, 1)
-        self.scale = Tensor(scale).reshape(1, len(scale), 1, 1)
+        self.offset = tensor(offset, dtype=float32).reshape(len(offset), 1, 1)
+        self.scale = tensor(scale, dtype=float32).reshape(len(scale), 1, 1)
         self.e = e
 
     def __call__(self, array: Tensor) -> Tensor:
@@ -40,7 +42,7 @@ class Normalizer:
         :return: Normalized array with rescaled values.
         :rtype: :class:`Tensor`
         """
-        return (array - self.offset) / (self.scale + self.e)
+        return array.add(self.offset).div(self.scale + self.e)
 
     def reverse(self, array: Tensor) -> Tensor:
         """
@@ -52,4 +54,8 @@ class Normalizer:
         :return: Array with original values.
         :rtype: :class:`Tensor`
         """
-        return array * (self.scale + self.e) + self.offset
+        return array.mul(self.scale + self.e).add(self.offset)
+
+
+def channel_stretch(x: Tensor):
+    return x.sub(x.amin((-1, -2))).div(x.amax((-1, -2)) + 1e-10)

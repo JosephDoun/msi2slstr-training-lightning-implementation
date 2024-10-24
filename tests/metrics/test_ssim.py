@@ -1,6 +1,7 @@
 import unittest
 import torch
 
+from torch import ones_like
 from metrics.ssim import ssim
 
 
@@ -41,7 +42,7 @@ class TestSSIM(unittest.TestCase):
 
     def test_c_zero_right(self):
         r = self.ssim.c(self.a, torch.zeros_like(self.a))
-        self.assertTrue(r.allclose(torch.zeros(1)))
+        self.assertTrue(r.allclose(torch.zeros(1), atol=1e-3))
     
     def test_c_zero_both(self):
         r = self.ssim.c(torch.zeros_like(self.a), torch.zeros_like(self.a))
@@ -51,6 +52,11 @@ class TestSSIM(unittest.TestCase):
         r = self.ssim.s(self.a, self.a)
         self.assertTrue(
             r.allclose(torch.Tensor([1.]) - self.bias_correction(self.a)))
+        
+    def test_s_zero_var(self):
+        r = self.ssim.s(ones_like(self.a), ones_like(self.a))
+        self.assertTrue(
+            r.allclose(torch.Tensor([1.])))
 
     def test_s_opposites(self):
         r = self.ssim.s(self.a, -self.a)

@@ -83,23 +83,27 @@ class msi2slstr(LightningModule):
         x, y = data
 
         Y_hat = self(x, y)
-        loss, energy, thermal = L(x, Y_hat, y, self._extra_out['thermal_y'],
-                                  self._extra_out['thermal_x'])
+        loss = L(x, Y_hat, y, self._extra_out['thermal_y'],
+                 self._extra_out['thermal_x'])
+        # Channelwise evaluation.
+        energy = L.energy(y, Y_hat).mean(0)
+        thermal = L.evaluate(y[:, 6:], self._extra_out['thermal_y']).mean(0)
 
         self._extra_out['x'] = x
         self._extra_out['y'] = y
         self._extra_out['Y_hat'] = Y_hat
 
         batch_loss = loss.mean()
+        # Batchwise evaluation.
         sample_loss = loss.detach().mean(-1)
-        ssim = L.evaluate(y, Y_hat)
 
         self.log("loss/train", batch_loss,
                  logger=True, prog_bar=True, on_epoch=True,
-                 on_step=False, batch_size=sample_loss.size(0))
+                 on_step=True, batch_size=sample_loss.size(0))
 
-        self.log_dict({"thermal_loss/train": thermal,
-                       # Per date.
+        self.log_dict({**{f"thermal_{i}/train": v for i, v in
+                          enumerate(thermal)},
+                       # Per date batch.
                        **{f"{k}/train": v for k, v in zip(dates, sample_loss,
                                                           strict=True)},
                        # Per tile.
@@ -142,16 +146,20 @@ class msi2slstr(LightningModule):
         x, y = data
 
         Y_hat = self(x, y)
-        loss, energy, thermal = L(x, Y_hat, y, self._extra_out['thermal_y'],
-                                  self._extra_out['thermal_x'])
+        loss = L(x, Y_hat, y, self._extra_out['thermal_y'],
+                 self._extra_out['thermal_x'])
+        # Channelwise evaluation.
+        energy = L.energy(y, Y_hat).mean(0)
+        thermal = L.evaluate(y[:, 6:], self._extra_out['thermal_y']).mean(0)
 
         batch_loss = loss.mean()
-        sample_loss = loss.mean(-1)
+        sample_loss = loss.detach().mean(-1)
 
         self.log("loss/val", batch_loss, prog_bar=True, logger=True,
                  on_epoch=True, on_step=True, batch_size=sample_loss.size(0))
         
-        self.log_dict({"thermal_loss/val": thermal,
+        self.log_dict({**{f"thermal_{i}/val": v
+                          for i, v in enumerate(thermal)},
                        # Per date.
                        **{f"{k}/val": v for k, v in zip(dates, sample_loss,
                                                         strict=True)},
@@ -172,15 +180,22 @@ class msi2slstr(LightningModule):
         dates, tiles = metadata
         x, y = data
         Y_hat = self(x, y)
-        loss, energy, thermal = L(x, Y_hat, y, self._extra_out['thermal_y'],
-                                  self._extra_out['thermal_x'])
+        
+        loss = L(x, Y_hat, y, self._extra_out['thermal_y'],
+                 self._extra_out['thermal_x'])
+        
+        # Channelwise evaluation.
+        energy = L.energy(y, Y_hat).mean(0)
+        thermal = L.evaluate(y[:, 6:], self._extra_out['thermal_y']).mean(0)
+        
         batch_loss = loss.mean()
-        sample_loss = loss.mean(-1)
+        sample_loss = loss.detach().mean(-1)
 
         self.log("loss/test", batch_loss, prog_bar=True, logger=True,
-                 on_step=False, on_epoch=True, batch_size=sample_loss.size(0))
+                 on_step=True, on_epoch=True, batch_size=sample_loss.size(0))
         
-        self.log_dict({"thermal_loss/test": thermal,
+        self.log_dict({**{f"thermal_{i}/test": v
+                          for i, v in enumerate(thermal)},
                        # Per date.
                        **{f"{k}/test": v for k, v in zip(dates, sample_loss,
                                                          strict=True)},
@@ -188,7 +203,7 @@ class msi2slstr(LightningModule):
                        **{f"{k}/test": v for k, v in zip(tiles, sample_loss,
                                                          strict=True)}
                        },
-                      on_step=False,
+                      on_step=True,
                       on_epoch=True,
                       prog_bar=False,
                       logger=True,

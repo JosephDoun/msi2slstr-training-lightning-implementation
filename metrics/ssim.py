@@ -9,6 +9,11 @@ class ssim(Module):
     *It is a design decision to keep component computations
     independent and allow handling by hardware cache.*
 
+    Zhou Wang, A. C. Bovik, H. R. Sheikh and E. P. Simoncelli,
+    "Image quality assessment: from error visibility to structural similarity,"
+    in IEEE Transactions on Image Processing, vol. 13, no. 4, pp. 600-612,
+    April 2004, doi: 10.1109/TIP.2003.819861.*
+
     :param dims: The dimensions to calculate the loss over.
     :type dims: tuple[int]
     """

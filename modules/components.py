@@ -38,7 +38,7 @@ class Scale2D(nn.Module):
         """
         scaled = (x *
                   y.std((-1, -2), keepdim=True) /
-                  x.std((-1, -2), keepdim=True))
+                  x.std((-1, -2), keepdim=True).add(1e-10))
         return (scaled -
                 scaled.mean((-1, -2), keepdim=True) +
                 y.mean((-1, -2), keepdim=True))

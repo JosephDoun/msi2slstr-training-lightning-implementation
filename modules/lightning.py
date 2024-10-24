@@ -1,9 +1,18 @@
-from typing import Any
 from lightning import LightningModule
+
 from metrics.fusion import msi2slstr_loss
+from transformations.normalization import channel_stretch
+
+from typing import Mapping
+from typing import Any
+
 from torch import Tensor
 from torch import set_float32_matmul_precision
-from typing import Mapping
+from torch.utils.tensorboard.writer import SummaryWriter
+from torch.optim import Adam
+from torch.nn import Conv2d
+
+from math import sqrt
 
 from .components import Stem
 from .components import DownsamplingBlock
@@ -13,10 +22,9 @@ from .components import Head
 from .components import OpticalToThermal
 from .components import Scale2D
 
-from torch.optim import Adam
-
 
 set_float32_matmul_precision('medium')
+L = msi2slstr_loss()
 
 
 class msi2slstr(LightningModule):
@@ -24,7 +32,9 @@ class msi2slstr(LightningModule):
     def __init__(self, lr: float = 1e-3, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.save_hyperparameters()
-        self.loss = msi2slstr_loss()
+        self._extra_out = {}
+
+    def configure_model(self) -> None:
         self.scale = Scale2D()
         self.therm = OpticalToThermal(6, 6)
         self.stem = Stem(13, 32, 12, 100)
@@ -37,7 +47,15 @@ class msi2slstr(LightningModule):
         self.up_a = UpsamplingBlock(128,  64, 100)
         self.head = Head(64, 12)
 
-        self._extra_out = {}
+        self._initialize_weights()
+        return super().configure_model()
+
+    def _initialize_weights(self):
+        for _, m in self.named_modules():
+            if isinstance(m, Conv2d):
+                m.weight.data.normal_(std=sqrt(2) / sqrt(m.weight.shape[1]))
+                if m.bias is not None:
+                    m.bias.data.fill_(.0)
 
     def forward(self, x, y) -> Tensor:
         optic_y = y[:, :6]
@@ -65,15 +83,22 @@ class msi2slstr(LightningModule):
         x, y = data
 
         Y_hat = self(x, y)
-        loss = self.loss(x, Y_hat, y,
-                         self._extra_out['thermal_y'],
-                         self._extra_out['thermal_x'])
+        loss, energy, thermal = L(x, Y_hat, y, self._extra_out['thermal_y'],
+                                  self._extra_out['thermal_x'])
+
+        self._extra_out['x'] = x
+        self._extra_out['y'] = y
+        self._extra_out['Y_hat'] = Y_hat
 
         batch_loss = loss.mean()
-        sample_loss = loss.mean(-1)
+        sample_loss = loss.detach().mean(-1)
+        ssim = L.evaluate(y, Y_hat)
 
-        # self.logger.experiment.add_scalars
-        self.log_dict({"training_loss": batch_loss,
+        self.log("loss/train", batch_loss,
+                 logger=True, prog_bar=True, on_epoch=True,
+                 on_step=False, batch_size=sample_loss.size(0))
+
+        self.log_dict({"thermal_loss/train": thermal,
                        # Per date.
                        **{f"{k}/train": v for k, v in zip(dates, sample_loss,
                                                           strict=True)},
@@ -81,27 +106,52 @@ class msi2slstr(LightningModule):
                        **{f"{k}/train": v for k, v in zip(tiles, sample_loss,
                                                           strict=True)}
                        },
-                      on_step=False,
+                      on_step=True,
                       on_epoch=True,
-                      prog_bar=True,
+                      prog_bar=False,
                       logger=True,
                       batch_size=sample_loss.size(0))
 
         return batch_loss
     
+    def on_train_epoch_end(self) -> None:
+        tboard: SummaryWriter = self.logger.experiment
+
+        tboard.add_images(tag="x/train",
+                          img_tensor=channel_stretch(self._extra_out['x'][0])
+                                                     .unsqueeze(1),
+                          global_step=self.current_epoch,
+                          dataformats='NCHW')
+
+        tboard.add_images(tag="y/train",
+                          img_tensor=channel_stretch(self._extra_out['y'][0])
+                                                     .unsqueeze(1),
+                          global_step=self.current_epoch,
+                          dataformats='NCHW')
+
+        tboard.add_images(tag="Y_hat/train",
+                          img_tensor=channel_stretch(self._extra_out['Y_hat']
+                                                     [0]).unsqueeze(1),
+                          global_step=self.current_epoch,
+                          dataformats='NCHW')
+        
+
     def validation_step(self, batch, batch_idx) -> Tensor | Mapping[str, Any] | None:
         data, metadata = batch
         dates, tiles = metadata
         x, y = data
+
         Y_hat = self(x, y)
-        loss = self.loss(x, Y_hat, y,
-                         self._extra_out['thermal_y'],
-                         self._extra_out['thermal_x'])
+        loss, energy, thermal = L(x, Y_hat, y, self._extra_out['thermal_y'],
+                                  self._extra_out['thermal_x'])
 
         batch_loss = loss.mean()
         sample_loss = loss.mean(-1)
+
+        self.log("loss/val", batch_loss, prog_bar=True, logger=True,
+                 on_epoch=True, on_step=True, batch_size=sample_loss.size(0))
         
-        self.log_dict({"validation_loss": batch_loss,
+        self.log_dict({"thermal_loss/val": thermal,
                        # Per date.
                        **{f"{k}/val": v for k, v in zip(dates, sample_loss,
                                                         strict=True)},
@@ -111,10 +161,10 @@ class msi2slstr(LightningModule):
                        },
                       on_step=False,
                       on_epoch=True,
-                      prog_bar=True,
+                      prog_bar=False,
                       logger=True,
                       batch_size=sample_loss.size(0))
-        
+
         return batch_loss
     
     def test_step(self, batch, batch_idx) -> Tensor | Mapping[str, Any] | None:
@@ -122,14 +172,15 @@ class msi2slstr(LightningModule):
         dates, tiles = metadata
         x, y = data
         Y_hat = self(x, y)
-        loss = self.loss(x, Y_hat, y,
-                         self._extra_out['thermal_y'],
-                         self._extra_out['thermal_x'])
-
+        loss, energy, thermal = L(x, Y_hat, y, self._extra_out['thermal_y'],
+                                  self._extra_out['thermal_x'])
         batch_loss = loss.mean()
         sample_loss = loss.mean(-1)
 
-        self.log_dict({"test_loss": batch_loss,
+        self.log("loss/test", batch_loss, prog_bar=True, logger=True,
+                 on_step=False, on_epoch=True, batch_size=sample_loss.size(0))
+        
+        self.log_dict({"thermal_loss/test": thermal,
                        # Per date.
                        **{f"{k}/test": v for k, v in zip(dates, sample_loss,
                                                          strict=True)},
@@ -139,7 +190,7 @@ class msi2slstr(LightningModule):
                        },
                       on_step=False,
                       on_epoch=True,
-                      prog_bar=True,
+                      prog_bar=False,
                       logger=True,
                       batch_size=sample_loss.size(0))
 

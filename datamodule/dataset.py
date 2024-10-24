@@ -3,6 +3,7 @@ import os
 from osgeo.gdal import Open
 from osgeo.gdal import Dataset as GDataset
 from osgeo.gdal import GA_ReadOnly
+from osgeo.gdal_array import LoadFile
 
 from torch import Tensor
 from torch import from_numpy
@@ -10,7 +11,7 @@ from torch import float32
 
 from torch.utils.data import Dataset
 
-
+from transformations.normalization import Normalizer
 
 
 class Image(Dataset):
@@ -20,9 +21,10 @@ class Image(Dataset):
 
     def __init__(self, imagepath: str, t_size: int, pad: int = 0) -> None:
         self.dataset: GDataset = Open(imagepath, GA_ReadOnly)
+        self.imagepath = imagepath
         self.info = imagepath.split(os.sep)
-        self.date = self.info[1]
-        self.tile = self.info[2]
+        self.date = self.info[-3]
+        self.tile = self.info[-2]
         self.t_size = t_size
         self.pad = pad
 
@@ -45,7 +47,7 @@ class Image(Dataset):
         """
         Get i-th tile of image.
         """
-        return (from_numpy(self.dataset.ReadAsArray(*self.tile_coords[index]))
+        return (from_numpy(LoadFile(self.imagepath, *self.tile_coords[index]))
                 .to(float32)
                 .clamp(0))
 
@@ -54,40 +56,42 @@ class Image(Dataset):
                (self.dataset.RasterYSize // self.t_size)
 
 
-class PairedImages:
+class M2SPair:
     """
     A pair of images served together conjointly.
     """
-    def __init__(self, *imagepaths: str,
+    def __init__(self, sen2imagepath: str, sen3imagepath: str,
                  t_size: tuple[int, int] = (100, 2),
                  pad: tuple[int, int] = (0, 0)) -> None:
-        self.sources = [Image(i, t, p) for i, t, p in
-                        zip(imagepaths, t_size, pad, strict=True)]
+        self.sen2source = Image(sen2imagepath, t_size=t_size[0], pad=pad[0])
+        self.sen3source = Image(sen3imagepath, t_size=t_size[1], pad=pad[1])
         
-        assert all(map(lambda x: len(x) == len(self.sources[0]),
-                       self.sources)),\
-        "Image lengths match"
-        assert all(map(lambda x: x.date == self.sources[0].date,
-                       self.sources)),\
+        assert len(self.sen2source) == len(self.sen3source),\
+        "Image lengths don't match"
+        assert self.sen2source.date == self.sen3source.date,\
         "Image dates don't match."
-        assert all(map(lambda x: x.tile == self.sources[0].tile,
-                       self.sources)),\
+        assert self.sen2source.tile == self.sen3source.tile,\
         "Image tiles don't match."
 
-        self.date = self.sources[0].date
-        self.tile = self.sources[0].tile
+        self.date = self.sen2source.date
+        self.tile = self.sen2source.tile
 
-    def __getitem__(self, index) -> tuple[tuple[Tensor], tuple[int, str, str]]:
-        # Specifically handling 2 sources for this usecase of Sentinel-2
-        # and Sentinel-3 images because we need to emit angles.
-        # TODO generalize function.
-        return (self.sources[0][index], self.sources[1][index][:12])
+        self.sen2normal = Normalizer((1500,), (.0,))
+        self.sen3normal = Normalizer((40, 40, 40,
+                                      2,  10,  1,
+                                      200, 200, 200,
+                                      200, 200, 200),
+                                      (0,))
+
+    def __getitem__(self, index) -> tuple[Tensor, Tensor]:
+        return (self.sen2normal(self.sen2source[index]),
+                self.sen3normal(self.sen3source[index][:12]))
 
     def __len__(self):
         """
         The length of the pair is the length of a single image.
         """
-        return self.sources[0].__len__()
+        return self.sen2source.__len__()
 
 
 def get_msi2slstr_data(dirname: str, *, t_size: tuple[int] = (100, 2),
@@ -100,8 +104,7 @@ def get_msi2slstr_data(dirname: str, *, t_size: tuple[int] = (100, 2),
             sen2filepath = os.path.join(dpath, directory, "S2MSI.tif")
             sen3filepath = os.path.join(dpath, directory, "S3SLSTR.tif")
             if not os.path.exists(sen2filepath): break
-            yield PairedImages(sen2filepath, sen3filepath,
-                               t_size=t_size, pad=pad)
+            yield M2SPair(sen2filepath, sen3filepath, t_size=t_size, pad=pad)
 
 
 def get_array_coords_list(
@@ -132,10 +135,10 @@ class msi2slstr_dataset(Dataset):
     """
     def __init__(self, dirname: str = "data", *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.sources: list[PairedImages] = [pair for pair in
-                                            get_msi2slstr_data(dirname=dirname,
-                                                               t_size=(100, 2),
-                                                               pad=(0, 0))]
+        self.sources: list[M2SPair] = [pair for pair in
+                                       get_msi2slstr_data(dirname=dirname,
+                                                          t_size=(100, 2),
+                                                          pad=(0, 0))]
 
     def _get_source(self, index) -> tuple[int, int]:
         """

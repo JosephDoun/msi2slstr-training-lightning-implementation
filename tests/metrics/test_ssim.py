@@ -33,45 +33,62 @@ class TestSSIM(unittest.TestCase):
         self.assertTrue(r.allclose(torch.Tensor([1])))
     
     def test_c_opposites(self):
+        """
+        Exact opposites should have identical standard deviations.
+        """
         r = self.ssim.c(self.a, -self.a)
-        # Exact opposites should have identical standard deviations.
         self.assertTrue(r.allclose(torch.Tensor([1.])))
 
-    def test_c_zero(self):
+    def test_c_zero_right(self):
         r = self.ssim.c(self.a, torch.zeros_like(self.a))
         self.assertTrue(r.allclose(torch.zeros(1)))
+    
+    def test_c_zero_both(self):
+        r = self.ssim.c(torch.zeros_like(self.a), torch.zeros_like(self.a))
+        self.assertTrue(r.allclose(torch.ones(1)))
 
     def test_s_identical(self):
         r = self.ssim.s(self.a, self.a)
         self.assertTrue(
             r.allclose(torch.Tensor([1.]) - self.bias_correction(self.a)))
-    
+
     def test_s_opposites(self):
         r = self.ssim.s(self.a, -self.a)
         self.assertTrue(
             r.allclose(- torch.ones(1) + self.bias_correction(self.a)))
-        
+
     def test_s_zero(self):
         r = self.ssim.s(self.a, torch.zeros_like(self.a))
         self.assertTrue(r.allclose(torch.zeros(1)))
-        
+
     def test_identical(self):
         r = self.ssim(self.a, self.a)
         self.assertTrue(
-            r.allclose(torch.Tensor([3.]) - self.bias_correction(self.a)))
+            r.allclose(torch.ones(1) - self.bias_correction(self.a) / 3))
 
     def test_opposites(self):
         r = self.ssim(self.a, -self.a)
         self.assertTrue(
-            r.allclose(-torch.ones(1) + self.bias_correction(self.a),
+            r.allclose(-torch.ones(1) / 3 + self.bias_correction(self.a) / 3,
                        atol=1e-2))
-        
+
     def test_scaled_opposites(self):
         r = self.ssim(self.a, -.1 * self.a)
         self.assertTrue(
-            r.allclose(-torch.ones(1) + self.bias_correction(self.a),
+            r.allclose(-torch.ones(1) / 3 + self.bias_correction(self.a) / 3,
                        atol=1e-2))
 
-    def test_zero(self):
+    def test_zero_right(self):
+        """
+        SSIM matching against the zero matrix should have minimal returns.
+        l = 0; c = 0; s = 0;
+        """
         r = self.ssim(self.a, torch.zeros_like(self.a))
-        self.assertTrue(r.allclose(torch.zeros(1), atol=1e-2))
+        self.assertTrue(r.allclose(torch.zeros(1), atol=1e-3))
+
+    def test_zero_both(self):
+        """
+        SSIM of two zero matrices should return the maximum value.
+        """
+        r = self.ssim(torch.zeros(5, 5, 10, 10), torch.zeros(5, 5, 10, 10))
+        self.assertTrue(r.allclose(torch.ones(1), atol=1e-2))

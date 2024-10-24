@@ -65,6 +65,6 @@ class ssim(Module):
         """
         Real evaluation of a pair's structural similarity.
         """
-        return (self.l(x, y).clamp(0) *
-                self.c(x, y) *
-                self.s(x, y).clamp(0))
+        x = x.detach()
+        y = y.detach()
+        return self.l(x, y) * self.c(x, y) * self.s(x, y)

@@ -1,0 +1,11 @@
+[project]
+name = "msi2slstr-lightning-training-dependencies"
+authors = [{name="Joseph Doundoulakis", email="iosif.doundoulakis@outlook.com"}]
+dynamic = ["dependencies", "version"]
+
+[tool.setuptools]
+packages = []
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+version = {file = "version"}

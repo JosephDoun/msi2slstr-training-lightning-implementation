@@ -1,6 +1,6 @@
 from torch.nn import Module
 from torch import Tensor
-
+from torch import stack
 
 class ssim(Module):
     """
@@ -15,7 +15,7 @@ class ssim(Module):
     def __init__(self, dims: tuple = (-1, -2)) -> None:
         super().__init__()
         self.dims = dims
-        self.C = 1e-10
+        self.C = 1e-15
 
     def _similarity(self, a: Tensor, b: Tensor) -> Tensor:
         return (
@@ -44,7 +44,8 @@ class ssim(Module):
             .mul(  # normalized y.
                    y.sub(y.mean(self.dims, keepdim=True)))
             .mean(self.dims, keepdim=True)
-            # .add(self.C * .5)
+            # Term necessary only when both tensors are 0.
+            .add(self.C * .5 * (not x.any() and not y.any()))
             # Denominator.
             .div(
                     x.std(self.dims, keepdim=True)
@@ -59,7 +60,7 @@ class ssim(Module):
         Compute an unrestricted version of SSIM that
         takes values between -1 and 3.
         """
-        return sum([self.l(x, y), self.c(x, y), self.s(x, y)])
+        return stack([self.l(x, y), self.c(x, y), self.s(x, y)]).mean(0)
     
     def evaluate(self, x: Tensor, y: Tensor) -> Tensor:
         """
@@ -67,4 +68,4 @@ class ssim(Module):
         """
         x = x.detach()
         y = y.detach()
-        return self.l(x, y) * self.c(x, y) * self.s(x, y)
+        return stack([self.l(x, y), self.c(x, y), self.s(x, y)]).prod(0)

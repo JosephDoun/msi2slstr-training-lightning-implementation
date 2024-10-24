@@ -15,7 +15,7 @@ class ssim(Module):
     def __init__(self, dims: tuple = (-1, -2)) -> None:
         super().__init__()
         self.dims = dims
-        self.C = 1e-15
+        self.C = 1e-5
 
     def _similarity(self, a: Tensor, b: Tensor) -> Tensor:
         return (
@@ -37,15 +37,17 @@ class ssim(Module):
         """
         Biased implementation for performance.
         """
+        xnorm = x.sub(x.mean(self.dims, keepdim=True))
+        ynorm = y.sub(y.mean(self.dims, keepdim=True))
         return (
             # Numerator.
             # normalized x.
-            x.sub(x.mean(self.dims, keepdim=True))
+            xnorm
             .mul(  # normalized y.
-                   y.sub(y.mean(self.dims, keepdim=True)))
+                   ynorm)
             .mean(self.dims, keepdim=True)
             # Term necessary only when both tensors are 0.
-            .add(self.C * .5 * (not x.any() and not y.any()))
+            .add(self.C * .5 * (not xnorm.any() and not ynorm.any()))
             # Denominator.
             .div(
                     x.std(self.dims, keepdim=True)

@@ -27,7 +27,7 @@ class Normalizer:
     """
 
     def __init__(self, scale: tuple[float], offset: tuple[float], *,
-                 e: float = 1e-15) -> None:
+                 e: float = 1e-6) -> None:
         self.offset = tensor(offset, dtype=float32).reshape(len(offset), 1, 1)
         self.scale = tensor(scale, dtype=float32).reshape(len(scale), 1, 1)
         self.e = e
@@ -59,4 +59,4 @@ class Normalizer:
 
 def channel_stretch(x: Tensor):
     xoffset = x.sub(x.amin((-1, -2), keepdim=True))
-    return xoffset.div(xoffset.amax((-1, -2), keepdim=True) + 1e-10)
+    return xoffset.div(xoffset.amax((-1, -2), keepdim=True) + 1e-6)

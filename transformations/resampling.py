@@ -16,8 +16,7 @@ class ValidAverageDownsampling(Module):
     :param scale: The area of the spatial aggregation in number of elements
         (pixels.), defaults to 50.
     :param scale: int
-    """|  run_training_batch                                                                                                                                             	|  0.18176        	|  62844          	|  1.1423e+04     	|  35.577         	|
-
+    """
 
     def __init__(self, scale: int = 50) -> None:
         self.scale = int(scale)

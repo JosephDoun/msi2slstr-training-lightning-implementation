@@ -1,12 +1,12 @@
 from lightning.pytorch.cli import LightningCLI
-from datamodule.lightning import msi2slstr_datamodule
+from datamodules.lightning import msi2slstr_datamodule
 from modules.lightning import msi2slstr
 
 import sys
 
 
 def main():
-    LightningCLI(msi2slstr, msi2slstr_datamodule)
+    LightningCLI(datamodule_class=msi2slstr_datamodule, trainer_defaults={})
     return 0
 
 

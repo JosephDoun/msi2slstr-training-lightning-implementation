@@ -4,7 +4,7 @@ from torch.utils.data import random_split
 from torch.utils.data import DataLoader
 from torch import Generator
 
-from .dataset import msi2slstr_dataset
+from .datasets import msi2slstr_dataset
 
 
 class msi2slstr_datamodule(LightningDataModule):

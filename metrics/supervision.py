@@ -24,7 +24,7 @@ class DeepLoss(Module):
                           count_include_pad=False)
                 for _in, size in zip(in_features, sizes)
             ])
-
+        self.sign = [-1, 1][int(maximize)]
         self._fn = loss_fn
 
     def forward(self, *x: Tensor, y: Tensor):
@@ -37,4 +37,4 @@ class DeepLoss(Module):
             x_tensor = x_tensor.view(x_tensor.size(0), x_tensor.size(1), -1)
             loss += self._fn(x_tensor, y).mean(-1)
 
-        return loss
+        return self.sign * loss

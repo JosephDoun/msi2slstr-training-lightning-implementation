@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 from torch import Generator
 
 from .datasets import msi2slstr_dataset
+from .datasets import Sentinel3_dataset
 
 
 class msi2slstr_datamodule(LightningDataModule):
@@ -12,9 +13,9 @@ class msi2slstr_datamodule(LightningDataModule):
     Data module for the msi2slstr project.
     """
     def __init__(self, batch_size: int = 32, datadir: str = 'data',
-                 num_workers: int = 1) -> None:
+                 num_workers: int = 4) -> None:
         super().__init__()
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=["_class_path"])
 
     def prepare_data(self) -> None:
         super().prepare_data()
@@ -48,3 +49,16 @@ class msi2slstr_datamodule(LightningDataModule):
     
     def teardown(self, stage: str) -> None:
         return super().teardown(stage)
+
+
+class thermal_datamodule(msi2slstr_datamodule):
+    def __init__(self, batch_size: int = 32, datadir: str = 'data',
+                 num_workers: int = 4) -> None:
+        super().__init__()
+        self.save_hyperparameters(ignore=['_class_path'])
+
+    def setup(self, stage: str) -> None:
+        self.train, self.val, self.test = \
+            random_split(Sentinel3_dataset(),
+                         [.8, .1, .1],
+                         Generator().manual_seed(0))

@@ -19,6 +19,9 @@ class msi2slstr_loss(ssim):
     def _dsample(self, x: Tensor):
         return AvgDownSamplingModule(x)
     
+    def _usample(self, x: Tensor):
+        return UpsamplingModule(x)
+    
     def _mask_x(self, high_x: Tensor, low_y: Tensor):
         return high_x.mul(UpsamplingModule(low_y).gt(0))
 

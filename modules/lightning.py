@@ -258,3 +258,67 @@ class msi2slstr(LightningModule):
 
     def configure_optimizers(self):
         return Adam(self.parameters(), lr=self.hparams.lr, maximize=True)
+
+
+class thermal_prediction(LightningModule):
+    def __init__(self, lr=1e-3, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.module = OpticalToThermal(6, 6)
+        self.save_hyperparameters()
+
+    def forward(self, x):
+        return self.module(x)
+
+    def training_step(self, batch, batch_idx) -> Tensor | Mapping[str, Any]:
+        Y_hat = self(batch[:, :6])
+        loss = SSIM(batch[:, 6:], Y_hat)
+        batch_loss = loss.mean()
+        eval_loss = SSIM.evaluate(batch[:, 6:], Y_hat)
+        sample_loss = eval_loss.mean(0)
+        
+        self.log("hp_metric", eval_loss.mean(), batch_size=sample_loss.size(0))
+        self.log("opt_to_thermal_experiment/train/loss",
+                 eval_loss.mean(),
+                 batch_size=batch.size(0), on_step=True, prog_bar=True)
+        
+        self.log_dict({f"opt_to_thermal_experiment/train_{i}": v for i, v in
+                       enumerate(sample_loss)}, batch_size=batch.size(0),
+                       on_step=True)
+
+        return batch_loss
+
+    def validation_step(self, batch, batch_idx) -> Tensor | Mapping[str, Any]:
+        Y_hat = self(batch[:, :6])
+        loss = SSIM(batch[:, 6:], Y_hat)
+        batch_loss = loss.mean()
+        eval_loss = SSIM.evaluate(batch[:, 6:], Y_hat)
+        sample_loss = eval_loss.mean(0)
+        
+        self.log("opt_to_thermal_experiment/val/loss",
+                 eval_loss.mean(),
+                 batch_size=batch.size(0), on_step=True, prog_bar=True)
+        
+        self.log_dict({f"opt_to_thermal_experiment/val_{i}": v for i, v in
+                       enumerate(sample_loss)}, batch_size=batch.size(0),
+                       on_step=True)
+        return batch_loss
+
+    def test_step(self, batch, batch_idx) -> Tensor | Mapping[str, Any]:
+        Y_hat = self(batch[:, :6])
+        loss = SSIM(batch[:, 6:], Y_hat)
+        batch_loss = loss.mean()
+        eval_loss = SSIM.evaluate(batch[:, 6:], Y_hat)
+        sample_loss = eval_loss.mean(0)
+
+        self.log("opt_to_thermal_experiment/test/loss",
+                 eval_loss.mean(),
+                 batch_size=batch.size(0), on_step=True, prog_bar=True)
+
+        self.log_dict({f"opt_to_thermal_experiment/test_{i}": v for i, v in
+                       enumerate(sample_loss)}, batch_size=batch.size(0),
+                       on_step=True)
+
+        return batch_loss
+
+    def configure_optimizers(self):
+        return Adam(self.parameters(), lr=self.hparams.lr, maximize=True)

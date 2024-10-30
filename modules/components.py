@@ -10,18 +10,16 @@ from . import CONFIG
 class OpticalToThermal(nn.Module):
     def __init__(self, _in: int, _out: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        base = 16
         self.module = nn.Sequential(
-            nn.BatchNorm2d(_in, momentum=CONFIG['BATCHNORM_MOMENT']),
-            nn.Conv2d(_in, 32, 1),
-            nn.BatchNorm2d(32,  momentum=CONFIG['BATCHNORM_MOMENT'],),
-            nn.ReLU(True),
-            nn.Conv2d(32, 64, 1),
-            nn.BatchNorm2d(64,  momentum=CONFIG['BATCHNORM_MOMENT']),
-            nn.ReLU(True),
-            nn.Conv2d(64, 32, 1),
-            nn.BatchNorm2d(32,  momentum=CONFIG['BATCHNORM_MOMENT']),
-            nn.ReLU(True),
-            nn.Conv2d(32, _out, 1),
+            nn.BatchNorm2d(_in, momentum=.1),
+            nn.Conv2d(_in, base, 1),
+            DualConv(base, 2*base, kernel_size=1, padding=0,
+                     batch_norm_momentum=1e-1),
+            DualConv(2*base, base, kernel_size=1, padding=0,
+                     batch_norm_momentum=1e-1),
+            nn.Conv2d(base, _out, 1),
+            nn.Softplus(beta=.1, threshold=.1)
         )
 
     def forward(self, x):
@@ -206,24 +204,28 @@ class ASPP(nn.Module):
 
 
 class DualConv(nn.Module):
-    def __init__(self, _in: int, _out: int, stride: int, dilation: int = 1,
-                 padding: int = 1, groups: int = 1, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, _in: int, _out: int, *, kernel_size: int = 3,
+                 stride: int = 1, dilation: int = 1, padding: int = 1,
+                 groups: int = 1, batch_norm_momentum: float = None,
+                 **kwargs) -> None:
+        super().__init__(**kwargs)
         self.module = nn.Sequential(
-            nn.BatchNorm2d(_in, momentum=CONFIG['BATCHNORM_MOMENT']),
+            nn.BatchNorm2d(_in, momentum=batch_norm_momentum or
+                           CONFIG['BATCHNORM_MOMENT']),
             nn.ReLU(inplace=True),
-            nn.Conv2d(_in, _out,
-                      kernel_size=3,
+            nn.Conv2d(in_channels=_in, out_channels=_out,
+                      kernel_size=kernel_size,
                       padding=padding,
                       stride=stride,
                       dilation=dilation,
                       padding_mode=CONFIG['PADDING_MODE'],
                       groups=groups),
-            nn.BatchNorm2d(_out, momentum=CONFIG['BATCHNORM_MOMENT']),
+            nn.BatchNorm2d(_out, momentum=batch_norm_momentum or
+                           CONFIG['BATCHNORM_MOMENT']),
             nn.ReLU(inplace=True),
-            nn.Conv2d(_out, _out,
-                      kernel_size=3,
-                      padding=1,
+            nn.Conv2d(in_channels=_out, out_channels=_out,
+                      kernel_size=kernel_size,
+                      padding=1 if kernel_size == 3 else padding,
                       padding_mode=CONFIG['PADDING_MODE'],
                       groups=groups))
         

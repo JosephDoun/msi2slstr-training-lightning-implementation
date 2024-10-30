@@ -60,6 +60,11 @@ class M2SPair:
     """
     A pair of images served together conjointly.
     """
+    sen2normal = Normalizer((1500,), (.0,))
+    sen3normal = Normalizer((40, 40, 40, 2,  10,  1,
+                             200, 200, 200, 200, 200, 200),
+                            (0,))
+    
     def __init__(self, sen2imagepath: str, sen3imagepath: str,
                  t_size: tuple[int, int] = (100, 2),
                  pad: tuple[int, int] = (0, 0)) -> None:
@@ -75,13 +80,6 @@ class M2SPair:
 
         self.date = self.sen2source.date
         self.tile = self.sen2source.tile
-
-        self.sen2normal = Normalizer((1500,), (.0,))
-        self.sen3normal = Normalizer((40, 40, 40,
-                                      2,  10,  1,
-                                      200, 200, 200,
-                                      200, 200, 200),
-                                      (0,))
 
     def __getitem__(self, index) -> tuple[Tensor, Tensor]:
         return (self.sen2normal(self.sen2source[index]),
@@ -103,7 +101,7 @@ def get_msi2slstr_data(dirname: str, *, t_size: tuple[int] = (100, 2),
         for directory in directories:
             sen2filepath = os.path.join(dpath, directory, "S2MSI.tif")
             sen3filepath = os.path.join(dpath, directory, "S3SLSTR.tif")
-            if not os.path.exists(sen2filepath): break
+            if not os.path.exists(sen2filepath): continue
             yield M2SPair(sen2filepath, sen3filepath, t_size=t_size, pad=pad)
 
 
@@ -167,3 +165,16 @@ class msi2slstr_dataset(Dataset):
         :rtype: int
         """
         return sum(map(lambda x: len(x), self.sources))
+
+
+class Sentinel3_dataset(msi2slstr_dataset):
+    def __init__(self) -> None:
+        super().__init__()
+        self.sources: list[Image] = [pair.sen3source for pair in
+                                     get_msi2slstr_data("data",
+                                                        t_size=(100, 2))]
+
+    def __getitem__(self, index) -> Tensor:
+        source, index = self._get_source(index)
+        img = self.sources[source]
+        return M2SPair.sen3normal(img[index][:12])

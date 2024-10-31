@@ -11,8 +11,6 @@ from torch import float32
 
 from torch.utils.data import Dataset
 
-from transformations.normalization import Normalizer
-
 
 class Image(Dataset):
     """
@@ -60,10 +58,6 @@ class M2SPair:
     """
     A pair of images served together conjointly.
     """
-    sen2normal = Normalizer((1500,), (.0,))
-    sen3normal = Normalizer((40, 40, 40, 2,  10,  1,
-                             200, 200, 200, 200, 200, 200),
-                            (0,))
     
     def __init__(self, sen2imagepath: str, sen3imagepath: str,
                  t_size: tuple[int, int] = (100, 2),
@@ -82,8 +76,7 @@ class M2SPair:
         self.tile = self.sen2source.tile
 
     def __getitem__(self, index) -> tuple[Tensor, Tensor]:
-        return (self.sen2normal(self.sen2source[index]),
-                self.sen3normal(self.sen3source[index][:12]))
+        return self.sen2source[index], self.sen3source[index][:12]
 
     def __len__(self):
         """
@@ -177,4 +170,4 @@ class Sentinel3_dataset(msi2slstr_dataset):
     def __getitem__(self, index) -> Tensor:
         source, index = self._get_source(index)
         img = self.sources[source]
-        return M2SPair.sen3normal(img[index][:12])
+        return img[index][:12]

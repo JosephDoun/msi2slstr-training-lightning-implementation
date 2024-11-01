@@ -119,12 +119,12 @@ def get_msi2slstr_data(dirname: str, *, t_size: tuple[int] = (100, 2),
     """
     Gather data sources from msi2slstr directory.
     """
-    for dpath, directories, _ in os.walk(dirname):
-        for directory in [*directories, ""]:
-            sen2filepath = os.path.join(dpath, directory, "S2MSI.tif")
-            sen3filepath = os.path.join(dpath, directory, "S3SLSTR.tif")
-            if not os.path.exists(sen2filepath): continue
-            yield M2SPair(sen2filepath, sen3filepath, t_size=t_size, pad=pad)
+    for dpath, _, _ in os.walk(dirname):
+        sen2filepath = os.path.join(dpath, "S2MSI.tif")
+        sen3filepath = os.path.join(dpath, "S3SLSTR.tif")
+        if not os.path.exists(sen2filepath) \
+            or not os.path.exists(sen3filepath): continue
+        yield M2SPair(sen2filepath, sen3filepath, t_size=t_size, pad=pad)
 
 
 def get_array_coords_list(

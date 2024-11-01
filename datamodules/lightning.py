@@ -5,7 +5,8 @@ from torch.utils.data import DataLoader
 from torch import Generator
 
 from .datasets import msi2slstr_dataset
-from .datasets import Sentinel3_dataset
+from .datasets import sen3dataset
+from .datasets import predictor_dataset
 
 
 class msi2slstr_datamodule(LightningDataModule):
@@ -44,6 +45,9 @@ class msi2slstr_datamodule(LightningDataModule):
     def test_dataloader(self) -> DataLoader:
         return DataLoader(self.test, batch_size=4)
     
+    def predict_dataloader(self) -> DataLoader:
+        return DataLoader(predictor_dataset(self.hparams.datadir))
+    
     def on_exception(self, exception: BaseException) -> None:
         return super().on_exception(exception)
     
@@ -59,6 +63,6 @@ class thermal_datamodule(msi2slstr_datamodule):
 
     def setup(self, stage: str) -> None:
         self.train, self.val, self.test = \
-            random_split(Sentinel3_dataset(),
+            random_split(sen3dataset(),
                          [.8, .1, .1],
                          Generator().manual_seed(0))

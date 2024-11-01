@@ -54,6 +54,31 @@ class Image(Dataset):
                (self.dataset.RasterYSize // self.t_size)
 
 
+class FusionImage(Image):
+    def __init__(self, sen3imagepath: str, t_size: int, pad: int = 0) -> None:
+        super().__init__(sen3imagepath, t_size, pad)
+
+        Warp("output.tif", self.dataset,
+             xRes=10, yRes=10, multithread=True, callback=TermProgress)
+        
+        self.dataset = Open("output.tif", GA_Update)
+
+        self.tile_coords = get_array_coords_list(t_size=t_size,
+                                                 sizex=self.dataset
+                                                 .RasterXSize,
+                                                 sizey=self.dataset
+                                                 .RasterYSize)
+
+    def __call__(self, indices: tuple[int], x: Tensor) -> None:
+        """
+        Put items.
+        """
+        for i, sample in zip(indices, x, strict=True):
+            self.dataset.WriteArray(sample.numpy(),
+                                    **self.tile_coords[i][:2],
+                                    band_list=range(x.size(1)))
+
+
 class M2SPair:
     """
     A pair of images served together conjointly.

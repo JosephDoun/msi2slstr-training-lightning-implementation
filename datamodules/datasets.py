@@ -3,6 +3,10 @@ import os
 from osgeo.gdal import Open
 from osgeo.gdal import Dataset as GDataset
 from osgeo.gdal import GA_ReadOnly
+from osgeo.gdal import GA_Update
+from osgeo.gdal import Warp
+from osgeo.gdal import TermProgress
+
 from osgeo.gdal_array import LoadFile
 
 from torch import Tensor
@@ -116,7 +120,7 @@ def get_msi2slstr_data(dirname: str, *, t_size: tuple[int] = (100, 2),
     Gather data sources from msi2slstr directory.
     """
     for dpath, directories, _ in os.walk(dirname):
-        for directory in directories:
+        for directory in [*directories, ""]:
             sen2filepath = os.path.join(dpath, directory, "S2MSI.tif")
             sen3filepath = os.path.join(dpath, directory, "S3SLSTR.tif")
             if not os.path.exists(sen2filepath): continue
@@ -185,7 +189,7 @@ class msi2slstr_dataset(Dataset):
         return sum(map(lambda x: len(x), self.sources))
 
 
-class Sentinel3_dataset(msi2slstr_dataset):
+class sen3dataset(msi2slstr_dataset):
     def __init__(self) -> None:
         super().__init__()
         self.sources: list[Image] = [pair.sen3source for pair in
@@ -196,3 +200,17 @@ class Sentinel3_dataset(msi2slstr_dataset):
         source, index = self._get_source(index)
         img = self.sources[source]
         return img[index][:12]
+
+
+class predictor_dataset(msi2slstr_dataset):
+    def __init__(self, dirname: str, *args, **kwargs):
+        super().__init__(dirname, *args, **kwargs)
+        self.output = FusionImage(self.sources[0].sen3source.imagepath,
+                                  self.sources[0].sen2source.t_size)
+        
+    def __getitem__(self, index) -> tuple[tuple[int], tuple[Tensor, Tensor]]:
+        return index, super().__getitem__(index)[0]
+    
+    def __call__(self, indices: tuple[int], x: Tensor) -> None:
+        super().__call__()
+        self.output(indices, x)

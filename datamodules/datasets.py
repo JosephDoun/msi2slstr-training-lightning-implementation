@@ -4,7 +4,7 @@ from osgeo.gdal import Open
 from osgeo.gdal import Dataset as GDataset
 from osgeo.gdal import GA_ReadOnly
 from osgeo.gdal import GA_Update
-from osgeo.gdal import Warp
+from osgeo.gdal import Warp, Translate
 from osgeo.gdal import TermProgress
 
 from osgeo.gdal_array import LoadFile
@@ -62,8 +62,8 @@ class FusionImage(Image):
     def __init__(self, sen3imagepath: str, t_size: int, pad: int = 0) -> None:
         super().__init__(sen3imagepath, t_size, pad)
 
-        Warp("output.tif", self.dataset,
-             xRes=10, yRes=10, multithread=True, callback=TermProgress)
+        Translate("output.tif", self.dataset, xRes=10, yRes=10, nodata=0,
+                  callback=TermProgress)
         
         self.dataset = Open("output.tif", GA_Update)
 
@@ -78,9 +78,9 @@ class FusionImage(Image):
         Put items.
         """
         for i, sample in zip(indices, x, strict=True):
-            self.dataset.WriteArray(sample.numpy(),
-                                    **self.tile_coords[i][:2],
-                                    band_list=range(x.size(1)))
+            self.dataset.WriteArray(sample.cpu().numpy(),
+                                    *self.tile_coords[i][:2],
+                                    band_list=range(1, x.size(1) + 1))
 
 
 class M2SPair:

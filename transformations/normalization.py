@@ -94,7 +94,8 @@ class Standardizer(Module):
         self.var = _t.var((-1, -2), keepdim=True, unbiased=False)
         return _t.sub(self.mean).div(sqrt(self.var + self.e))
 
-    def reverse(self, _t: Tensor) -> Tensor:
+    def reverse(self, _t: Tensor,
+                channels: int | tuple[int] | slice = slice(None)) -> Tensor:
         """
         Reverse the standardization of the last computation.
 
@@ -104,4 +105,5 @@ class Standardizer(Module):
         :return: Tensor with original values.
         :rtype: :class:`Tensor`
         """
-        return _t.mul(sqrt(self.var + self.e)).add(self.mean)
+        return _t.mul(sqrt(self.var[:, channels] + self.e))\
+            .add(self.mean[:, channels])

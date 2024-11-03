@@ -1,4 +1,5 @@
 from yaml import safe_load
+from yaml import dump
 
 from os.path import realpath, dirname
 from os import chdir, getcwd, PathLike
@@ -7,6 +8,12 @@ from os import chdir, getcwd, PathLike
 def get_yaml_dict(path: str) -> dict:
     with _OpenRelativePath(path) as stream:
         load = safe_load(stream)
+    return load
+
+
+def put_yaml_dict(data: dict, path: str) -> dict:
+    with _OpenRelativePath(path, mode="wt") as stream:
+        load = dump(data, stream)
     return load
 
 

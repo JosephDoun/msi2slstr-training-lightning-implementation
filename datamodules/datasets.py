@@ -175,11 +175,12 @@ class msi2slstr_dataset(Dataset):
         defaults to `data`.
     :type dirname: str
     """
-    def __init__(self, dirname: str = "data", *args, **kwargs):
+    def __init__(self, dirname: str = "data", t_size: tuple[int] = (100, 2),
+                 *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.sources: list[M2SPair] = [pair for pair in
                                        get_msi2slstr_data(dirname=dirname,
-                                                          t_size=(100, 2),
+                                                          t_size=t_size,
                                                           pad=(0, 0))]
 
     def _get_source(self, index) -> tuple[int, int]:

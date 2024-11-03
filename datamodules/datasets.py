@@ -225,6 +225,19 @@ class sen3dataset(msi2slstr_dataset):
         return img[index][:12]
 
 
+class sen2dataset(msi2slstr_dataset):
+    def __init__(self, t_size: int = 500) -> None:
+        super().__init__()
+        self.sources: list[Image] = [image for image in
+                                     get_sentinel2_data("data",
+                                                        t_size=t_size)]
+
+    def __getitem__(self, index) -> Tensor:
+        source, index = self._get_source(index)
+        img = self.sources[source]
+        return img[index]
+
+
 class predictor_dataset(msi2slstr_dataset):
     def __init__(self, dirname: str, *args, **kwargs):
         super().__init__(dirname, *args, **kwargs)

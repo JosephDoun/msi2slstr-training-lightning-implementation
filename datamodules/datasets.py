@@ -243,10 +243,10 @@ class predictor_dataset(msi2slstr_dataset):
         super().__init__(dirname, *args, **kwargs)
         self.output = FusionImage(self.sources[0].sen3source.imagepath,
                                   self.sources[0].sen2source.t_size)
-        
+
     def __getitem__(self, index) -> tuple[tuple[int], tuple[Tensor, Tensor]]:
         return index, super().__getitem__(index)[0]
-    
+
     def __call__(self, indices: tuple[int], x: Tensor) -> None:
         super().__call__()
         self.output(indices, x)

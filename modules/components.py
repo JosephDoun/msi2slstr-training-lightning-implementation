@@ -26,7 +26,7 @@ class OpticalToThermal(nn.Module):
         return self.module(x)
 
 
-class Scale2D(nn.Module):
+class ReScale2D(nn.Module):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 

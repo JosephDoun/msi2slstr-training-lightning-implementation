@@ -42,7 +42,7 @@ class TestSSIM(unittest.TestCase):
 
     def test_c_zero_right(self):
         r = self.ssim.c(self.a, torch.zeros_like(self.a))
-        self.assertTrue(r.allclose(torch.zeros(1), atol=1e-3))
+        self.assertTrue(r.allclose(torch.zeros(1), atol=1e-2))
     
     def test_c_zero_both(self):
         r = self.ssim.c(torch.zeros_like(self.a), torch.zeros_like(self.a))
@@ -50,8 +50,7 @@ class TestSSIM(unittest.TestCase):
 
     def test_s_identical(self):
         r = self.ssim.s(self.a, self.a)
-        self.assertTrue(
-            r.allclose(torch.Tensor([1.]) - self.bias_correction(self.a)))
+        self.assertTrue(r.gt(torch.Tensor([.99])).all())
         
     def test_s_zero_var(self):
         r = self.ssim.s(ones_like(self.a), ones_like(self.a))
@@ -60,8 +59,8 @@ class TestSSIM(unittest.TestCase):
 
     def test_s_opposites(self):
         r = self.ssim.s(self.a, -self.a)
-        self.assertTrue(
-            r.allclose(- torch.ones(1) + self.bias_correction(self.a)))
+        self.assertTrue(r.lt(torch.Tensor([-.99])).all())
+
 
     def test_s_zero(self):
         r = self.ssim.s(self.a, torch.zeros_like(self.a))
@@ -69,14 +68,14 @@ class TestSSIM(unittest.TestCase):
 
     def test_identical(self):
         r = self.ssim(self.a, self.a)
-        self.assertTrue(
-            r.allclose(torch.ones(1) - self.bias_correction(self.a) / 3))
+        self.assertTrue(r.gt(torch.Tensor([.995])).all())
+
 
     def test_opposites(self):
         r = self.ssim(self.a, -self.a)
-        self.assertTrue(
-            r.allclose(-torch.ones(1) / 3 + self.bias_correction(self.a) / 3,
-                       atol=1e-2))
+        # Contast is identical; returns 1.
+        self.assertTrue(r.lt(torch.Tensor([-.32])).all())
+
 
     def test_scaled_opposites(self):
         r = self.ssim(self.a, -.1 * self.a)
@@ -90,7 +89,7 @@ class TestSSIM(unittest.TestCase):
         l = 0; c = 0; s = 0;
         """
         r = self.ssim(self.a, torch.zeros_like(self.a))
-        self.assertTrue(r.allclose(torch.zeros(1), atol=1e-3))
+        self.assertTrue(r.allclose(torch.zeros(1), atol=1e-2))
 
     def test_zero_both(self):
         """

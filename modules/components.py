@@ -40,6 +40,9 @@ class ReScale2D(nn.Module):
         return (scaled -
                 scaled.mean((-1, -2), keepdim=True) +
                 y.mean((-1, -2), keepdim=True))
+    
+    def __call__(self, x: Tensor, ref: Tensor, *args: Any, **kwds: Any) -> Any:
+        return super().__call__(x, ref, *args, **kwds)
 
 
 class UpsamplingBlock(nn.Module):

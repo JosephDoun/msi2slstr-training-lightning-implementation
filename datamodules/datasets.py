@@ -213,11 +213,11 @@ class msi2slstr_dataset(Dataset):
 
 
 class sen3dataset(msi2slstr_dataset):
-    def __init__(self) -> None:
+    def __init__(self, t_size: int = 2) -> None:
         super().__init__()
-        self.sources: list[Image] = [pair.sen3source for pair in
-                                     get_msi2slstr_data("data",
-                                                        t_size=(100, 2))]
+        self.sources: list[Image] = [image for image in
+                                     get_sentinel3_data("data",
+                                                        t_size=t_size)]
 
     def __getitem__(self, index) -> Tensor:
         source, index = self._get_source(index)

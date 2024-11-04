@@ -221,32 +221,33 @@ class msi2slstr(LightningModule):
         x, y = data
         Y_hat = self(x, y)
         
-        loss = MSI2SLSTRLoss(x, Y_hat, y, self._extra_out['thermal_y'],
-                 self._extra_out['thermal_x'])
-        
+        loss, thermal = MSI2SLSTRLoss(x, Y_hat, y,
+                                      self._extra_out['thermal_y'],
+                                      self._extra_out['thermal_x'])
+
         # For channelwise evaluation.
-        energy = MSI2SLSTRLoss.energy(y, Y_hat).mean(0)
-        thermal = MSI2SLSTRLoss.evaluate(y[:, 6:],
-                                         self._extra_out['thermal_y']).mean(0)
+        energy = loss.mean(0)
+        thermal = thermal.mean(0)
         
         batch_loss = loss.mean()
         sample_loss = loss.detach().mean(-1)
 
-        self.log("loss/test", batch_loss, prog_bar=True, logger=True,
+        self.log("training/loss/test", batch_loss, prog_bar=True, logger=True,
                  on_step=True, on_epoch=True, batch_size=sample_loss.size(0))
         
-        self.log_dict({**{f"energy_{i}/test": v for i, v in
+        self.log_dict({**{f"training/energy_{i}/test": v for i, v in
                           enumerate(energy)},
 
-                       **{f"thermal_{i}/test": v
+                       **{f"training/thermal_{i}/test": v
                           for i, v in enumerate(thermal)},
                        
                        # Per date.
-                       **{f"{k}/test": v for k, v in zip(dates, sample_loss,
-                                                         strict=True)},
+                       **{f"training/{k}/test": v for k, v in
+                          zip(dates, sample_loss, strict=True)},
+                       
                        # Per tile.
-                       **{f"{k}/test": v for k, v in zip(tiles, sample_loss,
-                                                         strict=True)}
+                       **{f"training/{k}/test": v for k, v in
+                          zip(tiles, sample_loss, strict=True)}
                        },
                       on_step=True,
                       on_epoch=True,

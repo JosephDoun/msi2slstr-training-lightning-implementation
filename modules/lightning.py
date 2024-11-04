@@ -271,6 +271,76 @@ class msi2slstr(LightningModule):
         return Adam(self.parameters(), lr=self.hparams.lr, maximize=True)
 
 
+class msi2slstr_pretraining(msi2slstr):
+    def training_step(self, batch, batch_idx) -> Tensor | Mapping[str, Any]:
+        (x, y), _ = batch
+        
+        x.normal_(0, .01)
+        Y_hat = self(x, y)
+        
+        self._extra_out['y'] = y
+        self._extra_out['Y_hat'] = Y_hat
+
+        # Main loss.
+        loss = SSIM(MSI2SLSTRLoss._usample(y), Y_hat)
+
+        # For the OptToThermal optimization.
+        thermal = SSIM(y[:, 6:], self._extra_out['thermal_y']).mean(0)
+
+        # Channelwise evaluation.
+        bands_loss = loss.mean(0)
+        batch_loss = loss.mean()
+
+        self.log("hp_metric", batch_loss)
+        self.log("pretraining/train_loss", batch_loss,
+                 logger=True, prog_bar=True, on_epoch=True,
+                 on_step=True, batch_size=loss.size(0))
+
+        self.log_dict({**{f"pretraining/energy_{i}/train": v for i, v in
+                          enumerate(bands_loss)},
+                       **{f"pretraining/thermal_{i}/train": v for i, v in
+                          enumerate(thermal)},
+                       },
+                      on_step=True,
+                      on_epoch=True,
+                      prog_bar=False,
+                      logger=True,
+                      batch_size=loss.size(0))
+
+        deep_loss = DEEPLOSS(self._extra_out['deep512'],
+                             y=y).mean()
+
+        return batch_loss + deep_loss + thermal.mean()
+
+    def on_train_epoch_end(self) -> None:
+        tboard: SummaryWriter = self.logger.experiment
+
+        tboard.add_images(tag="pretraining/train/y",
+                          img_tensor=channel_stretch(self._extra_out['y'][1])
+                                                     .unsqueeze(1),
+                          global_step=self.current_epoch,
+                          dataformats='NCHW')
+
+        tboard.add_images(tag="pretraining/train/Y_hat",
+                          img_tensor=channel_stretch(self._extra_out['Y_hat']
+                                                     [1]).unsqueeze(1),
+                          global_step=self.current_epoch,
+                          dataformats='NCHW')
+        
+        tboard.add_images(tag="pretraining/train/thermal",
+                          img_tensor=channel_stretch(self._extra_out
+                                                     ['thermal_y']
+                                                     [1]).unsqueeze(1),
+                          global_step=self.current_epoch,
+                          dataformats='NCHW')
+
+    def validation_step(self, batch, batch_idx) -> Tensor | Mapping[str, Any]:
+        ...
+
+    def test_step(self, batch, batch_idx) -> Tensor | Mapping[str, Any]:
+        ...
+
+
 class thermal_prediction(LightningModule):
     def __init__(self, lr=1e-3, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)

@@ -63,7 +63,8 @@ class FusionImage(Image):
         super().__init__(sen3imagepath, t_size, pad)
 
         Translate("output.tif", self.dataset, xRes=10, yRes=10, noData=0,
-                  callback=TermProgress)
+                  callback=TermProgress, creationOptions=["COMPRESS=ZSTD",
+                                                          "PREDICTOR=2"])
         
         self.dataset = Open("output.tif", GA_Update)
 

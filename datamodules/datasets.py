@@ -89,11 +89,9 @@ class M2SPair:
     A pair of images served together conjointly.
     """
     
-    def __init__(self, sen2imagepath: str, sen3imagepath: str,
-                 t_size: tuple[int, int] = (100, 2),
-                 pad: tuple[int, int] = (0, 0)) -> None:
-        self.sen2source = Image(sen2imagepath, t_size=t_size[0], pad=pad[0])
-        self.sen3source = Image(sen3imagepath, t_size=t_size[1], pad=pad[1])
+    def __init__(self, sen2image: Image, sen3image: Image) -> None:
+        self.sen2source = sen2image
+        self.sen3source = sen3image
         
         assert len(self.sen2source) == len(self.sen3source),\
         "Image lengths don't match"

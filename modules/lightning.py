@@ -257,6 +257,16 @@ class msi2slstr(LightningModule):
 
         return batch_loss
 
+    def predict_step(self, batch, batch_idx) -> None:
+        indices, (x, y) = batch
+        
+        # Predict
+        Y_hat = self(x, y)
+
+        # Write to output: A writer class should be available to receive the
+        # inference product.
+        self.trainer.predict_dataloaders.dataset.output(indices, Y_hat)
+
     def configure_optimizers(self):
         return Adam(self.parameters(), lr=self.hparams.lr, maximize=True)
 

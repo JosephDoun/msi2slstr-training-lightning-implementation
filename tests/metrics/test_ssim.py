@@ -26,7 +26,7 @@ class TestSSIM(unittest.TestCase):
         self.assertTrue((r < -.5).all())
     
     def test_l_zero(self):
-        r = self.ssim.l(self.a, torch.zeros_like(self.a))
+        r = self.ssim.l(self.a.add(1), torch.zeros_like(self.a))
         self.assertTrue(r.allclose(torch.zeros(1), atol=1e-2))
 
     def test_c_identical(self):

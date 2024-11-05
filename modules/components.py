@@ -38,20 +38,29 @@ class YNorm2D(nn.Module):
 class OpticalToThermal(nn.Module):
     def __init__(self, _in: int, _out: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        base = 16
-        self.module = nn.Sequential(
-            nn.BatchNorm2d(_in, momentum=.1),
-            nn.Conv2d(_in, base, 1),
-            DualConv(base, 2*base, kernel_size=1, padding=0,
-                     batch_norm_momentum=1e-1),
-            DualConv(2*base, base, kernel_size=1, padding=0,
-                     batch_norm_momentum=1e-1),
-            nn.Conv2d(base, _out, 1),
-            nn.Softplus(beta=.1, threshold=.1)
+        self.encoder = nn.Sequential(
+            nn.Conv2d(_in, _in * 2, 1),
+            nn.GroupNorm(1, _in * 2),
+            Activation(inplace=True),
+            nn.Conv2d(_in * 2, _in * 4, 1),
+            )
+        self.decoder = nn.Sequential(
+            nn.GroupNorm(1, _in * 4),
+            Activation(inplace=True),
+            nn.Conv2d(_in * 4, _out, 1),
+            nn.GroupNorm(1, _out)
+        )
+        self.score = nn.Sequential(
+            nn.GroupNorm(1, _in * 4),
+            Activation(inplace=True),
+            nn.Conv2d(_in * 4, _in * 4, 1, groups=_in),
+            nn.Sigmoid()
         )
 
-    def forward(self, x):
-        return self.module(x)
+    def forward(self, x: Tensor):
+        x = self.encoder(x)
+        s = self.score(x)
+        return self.decoder(x * s)
 
 
 class ReScale2D(nn.Module):

@@ -10,7 +10,7 @@ trainer:
   callbacks:
   fast_dev_run: false
   max_epochs: 1
-  min_epochs: 1
+  min_epochs: 0
   max_steps: -1
   min_steps: -1
   max_time: null
@@ -26,7 +26,7 @@ trainer:
   enable_checkpointing: null
   enable_progress_bar: null
   enable_model_summary: null
-  accumulate_grad_batches: 4
+  accumulate_grad_batches: 1
   gradient_clip_val: 1
   gradient_clip_algorithm: null
   deterministic: null
@@ -46,6 +46,7 @@ data:
   class_path: msi2slstr_datamodule
   init_args:
     datadir: data/20230721/T33TVF
+    batch_size: 32
 optimizer: null
 lr_scheduler: null
 ckpt_path: models/last.ckpt

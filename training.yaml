@@ -8,10 +8,17 @@ trainer:
   precision: null
   logger: null
   callbacks:
-    - class_path: lightning.pytorch.callbacks.LearningRateFinder
+    - class_path: LearningRateFinder
+      init_args:
+        early_stop_threshold: 10
+    - class_path: ModelCheckpoint
+      init_args:
+        save_last: link
+        dirpath: models
+        filename: msi2slstr
   fast_dev_run: false
   max_epochs: 3
-  min_epochs: 1
+  min_epochs: 0
   max_steps: -1
   min_steps: -1
   max_time: null
@@ -27,8 +34,8 @@ trainer:
   enable_checkpointing: null
   enable_progress_bar: null
   enable_model_summary: null
-  accumulate_grad_batches: 1
-  gradient_clip_val: 1
+  accumulate_grad_batches: 4
+  gradient_clip_val: 1000
   gradient_clip_algorithm: null
   deterministic: null
   benchmark: null
@@ -41,9 +48,15 @@ trainer:
   sync_batchnorm: false
   reload_dataloaders_every_n_epochs: 0
   default_root_dir: null
-model: msi2slstr
-  # lr: .001
-data: msi2slstr_datamodule
+model:
+  class_path: msi2slstr
+  init_args:
+    lr: .001
+data:
+  class_path: msi2slstr_datamodule
+  init_args:
+    batch_size: 32
 optimizer: null
 lr_scheduler: null
-ckpt_path: null
+ckpt_path: pretrained/last.ckpt
+

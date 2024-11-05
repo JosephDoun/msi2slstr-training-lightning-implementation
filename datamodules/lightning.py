@@ -46,7 +46,9 @@ class msi2slstr_datamodule(LightningDataModule):
         return DataLoader(self.test, batch_size=4)
     
     def predict_dataloader(self) -> DataLoader:
-        return DataLoader(predictor_dataset(self.hparams.datadir))
+        return DataLoader(predictor_dataset(self.hparams.datadir),
+                          batch_size=self.hparams.batch_size,
+                          num_workers=4)
     
     def on_exception(self, exception: BaseException) -> None:
         return super().on_exception(exception)
@@ -63,6 +65,6 @@ class thermal_datamodule(msi2slstr_datamodule):
 
     def setup(self, stage: str) -> None:
         self.train, self.val, self.test = \
-            random_split(sen3dataset(),
+            random_split(sen3dataset(t_size=2),
                          [.8, .1, .1],
                          Generator().manual_seed(0))

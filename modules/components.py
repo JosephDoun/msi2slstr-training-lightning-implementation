@@ -112,7 +112,7 @@ class Head(nn.Module):
         self.module = nn.Sequential(
             ASPP(_in, _in // 2, 1, 3, 6),
             nn.BatchNorm2d(_in // 2, momentum=CONFIG['BATCHNORM_MOMENT']),
-            nn.ReLU(True),
+            Activation(inplace=True),
             nn.Conv2d(_in // 2, _out, 1, padding=0),
             nn.BatchNorm2d(_out, momentum=CONFIG['BATCHNORM_MOMENT'])
         )
@@ -142,7 +142,7 @@ class Stem(nn.Module):
             nn.Conv2d(_in * 2, _out, kernel_size=3, padding=1, groups=2,
                       padding_mode=CONFIG["PADDING_MODE"]),
             nn.BatchNorm2d(_out, momentum=CONFIG['BATCHNORM_MOMENT']),
-            nn.ReLU(inplace=True),
+            Activation(inplace=True),
             nn.Conv2d(_out, _out, kernel_size=3, padding=1, groups=2,
                       padding_mode=CONFIG["PADDING_MODE"])
         )
@@ -160,7 +160,6 @@ class EmbeddingY(nn.Module):
                  *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.module = nn.Sequential(
-            nn.Upsample((size, size), mode="nearest"),
              nn.BatchNorm2d(_in, momentum=CONFIG["BATCHNORM_MOMENT"]),
              nn.Upsample((size, size), mode="nearest") if size else None,
              nn.Conv2d(_in, _out, kernel_size=3, stride=1, padding=scale,
@@ -191,7 +190,7 @@ class CrossGatedConcat(nn.Module):
         super().__init__(*args, **kwargs)
         self.query_x = nn.Sequential(
             nn.BatchNorm2d(_in, momentum=CONFIG['BATCHNORM_MOMENT']),
-            nn.ReLU(inplace=True),
+            Activation(inplace=True),
             nn.Conv2d(_in, _out,
                       kernel_size=3,
                       padding=1,
@@ -200,7 +199,7 @@ class CrossGatedConcat(nn.Module):
 
         self.query_c = nn.Sequential(
             nn.BatchNorm2d(conn_in, momentum=CONFIG['BATCHNORM_MOMENT']),
-            nn.ReLU(inplace=True),
+            Activation(inplace=True),
             nn.Conv2d(conn_in, _out,
                       kernel_size=3,
                       padding=1,
@@ -209,7 +208,7 @@ class CrossGatedConcat(nn.Module):
         
         self.score = nn.Sequential(
             nn.BatchNorm2d(_out, momentum=CONFIG['BATCHNORM_MOMENT']),
-            nn.ReLU(inplace=True),
+            Activation(inplace=True),
             nn.Conv2d(_out, _in + conn_in,
                       kernel_size=3,
                       padding=1,
@@ -234,21 +233,21 @@ class ASPP(nn.Module):
             nn.Conv2d(_in, _out, kernel_size=3, dilation=scale_1,
                       padding=scale_1, padding_mode=CONFIG['PADDING_MODE']),
             nn.BatchNorm2d(_out, momentum=CONFIG['BATCHNORM_MOMENT']),
-            nn.ReLU(inplace=True)
+            Activation(inplace=True),
         )
 
         self.scale_2 = nn.Sequential(
             nn.Conv2d(_in, _out, kernel_size=3, dilation=scale_2,
                       padding=scale_2, padding_mode=CONFIG['PADDING_MODE']),
             nn.BatchNorm2d(_out, momentum=CONFIG['BATCHNORM_MOMENT']),
-            nn.ReLU(inplace=True)
+            Activation(inplace=True),
         )
 
         self.scale_3 = nn.Sequential(
             nn.Conv2d(_in, _out, kernel_size=3, dilation=scale_3,
                       padding=scale_3, padding_mode=CONFIG['PADDING_MODE']),
             nn.BatchNorm2d(_out, momentum=CONFIG['BATCHNORM_MOMENT']),
-            nn.ReLU(inplace=True)
+            Activation(inplace=True),
         )
 
         self.pool = nn.Conv2d(_out, _out, kernel_size=1, padding=0)
@@ -269,7 +268,7 @@ class DualConv(nn.Module):
         self.module = nn.Sequential(
             nn.BatchNorm2d(_in, momentum=batch_norm_momentum or
                            CONFIG['BATCHNORM_MOMENT']),
-            nn.ReLU(inplace=True),
+            Activation(inplace=True),
             nn.Conv2d(in_channels=_in, out_channels=_out,
                       kernel_size=kernel_size,
                       padding=padding,
@@ -279,7 +278,7 @@ class DualConv(nn.Module):
                       groups=groups),
             nn.BatchNorm2d(_out, momentum=batch_norm_momentum or
                            CONFIG['BATCHNORM_MOMENT']),
-            nn.ReLU(inplace=True),
+            Activation(inplace=True),
             nn.Conv2d(in_channels=_out, out_channels=_out,
                       kernel_size=kernel_size,
                       padding=1 if kernel_size == 3 else padding,

@@ -66,7 +66,7 @@ class DownsamplingBlock(nn.Module):
         self.module = DualConv(_in, _out, stride=2, padding=1, groups=2)
 
     def forward(self, x):
-        return self.module(x) + self.residual(x)
+        return self.module(x).add(self.residual(x))
 
 
 class Head(nn.Module):

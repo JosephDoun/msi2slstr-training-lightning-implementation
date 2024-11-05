@@ -30,16 +30,16 @@ class ReScale2D(nn.Module):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-    def forward(self, x: Tensor, y: Tensor):
+    def forward(self, x: Tensor, ref: Tensor):
         """
         Linearly project `x` to the radiometric scale of `y`;
         """
         scaled = (x *
-                  y.std((-1, -2), keepdim=True) /
+                  ref.std((-1, -2), keepdim=True) /
                   x.std((-1, -2), keepdim=True).add(1e-5))
         return (scaled -
                 scaled.mean((-1, -2), keepdim=True) +
-                y.mean((-1, -2), keepdim=True))
+                ref.mean((-1, -2), keepdim=True))
     
     def __call__(self, x: Tensor, ref: Tensor, *args: Any, **kwds: Any) -> Any:
         return super().__call__(x, ref, *args, **kwds)

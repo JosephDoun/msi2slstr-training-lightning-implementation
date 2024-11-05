@@ -4,7 +4,35 @@ from torch import einsum
 from torch import concat
 from torch import Tensor
 
-from . import CONFIG
+from torch.nn import LeakyReLU as Activation
+
+from config import MODEL_CONFIG as CONFIG
+from config import DATA_CONFIG as DATA
+
+from typing import Any
+
+
+class YNorm2D(nn.Module):
+    """
+    Class providing the denorm method, reversing BatchNorm2D.
+    """
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        mean = Tensor(DATA['stats']['sen3']['mean'])\
+            .reshape(1, -1, 1, 1)
+        var = Tensor(DATA['stats']['sen3']['var'])\
+            .reshape(1, -1, 1, 1)
+        self.e = 1e-5
+        self.register_buffer("mean", mean)
+        self.register_buffer("var", var)
+
+    def forward(self, x: Tensor):
+        return x.sub(self.mean)\
+            .div(self.var + self.e)
+
+    def denorm(self, x: Tensor, channels: slice | list[int] = slice(None)):
+        return x.mul(self.var[:, channels] + self.e)\
+            .add(self.mean[:, channels])
 
 
 class OpticalToThermal(nn.Module):

@@ -77,7 +77,7 @@ class Head(nn.Module):
             nn.BatchNorm2d(_in // 2, momentum=CONFIG['BATCHNORM_MOMENT']),
             nn.ReLU(True),
             nn.Conv2d(_in // 2, _out, 1, padding=0),
-            nn.Softplus(beta=.2, threshold=.1)
+            nn.BatchNorm2d(_out, momentum=CONFIG['BATCHNORM_MOMENT'])
         )
 
     def forward(self, x):

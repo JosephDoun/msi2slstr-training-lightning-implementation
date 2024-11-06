@@ -19,10 +19,10 @@ class msi2slstr_loss(ssim):
 
     def _dsample(self, x: Tensor):
         return AvgDownSamplingModule(x)
-    
+
     def _usample(self, x: Tensor):
         return UpsamplingModule(x)
-    
+
     def _mask_x(self, high_x: Tensor, low_y: Tensor):
         return high_x.mul(UpsamplingModule(low_y).gt(0))
 
@@ -33,7 +33,7 @@ class msi2slstr_loss(ssim):
         :rtype: tuple
         """
         # zero y pixels must be masked out of x for consistency.
-        x = concat([x[:, DATA_CONFIG['s2_bands']], thermal_estimate_x], dim=-3)
+        x = concat([x[:, DATA_CONFIG['sen2_bands']], thermal_estimate_x], dim=-3)
         # Mask out irrelevant pixels using LST band.
         x = self._mask_x(x, y[:, [-1]])
         # Not respecting zero pixels pf y.
@@ -42,7 +42,7 @@ class msi2slstr_loss(ssim):
         thermal = super().forward(thermal_estimate_y, y[:, 6:])
         # Respecting zero pixels of y but not of x. Not important.
         energy = super().forward(y, self._dsample(Y_hat))
-        return sum([energy, structure]).div(2.), thermal
+        return energy.mul(structure), thermal
 
     def evaluate(self, y: Tensor, Y_hat: Tensor) -> Tensor:
         return super().evaluate(y, AvgDownSamplingModule(Y_hat))

@@ -2,6 +2,7 @@ from torch.nn import Module
 from torch import Tensor
 from torch import stack
 
+
 class ssim(Module):
     """
     Structural Similarity Index (basic implementation).

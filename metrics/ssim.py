@@ -17,10 +17,14 @@ class ssim(Module):
     :param dims: The dimensions to calculate the loss over.
     :type dims: tuple[int]
     """
-    def __init__(self, dims: tuple = (-1, -2)) -> None:
+    def __init__(self, dims: tuple = (-1, -2), *,
+                 a: float = 1., b: float = 1., c: float = 1.) -> None:
         super().__init__()
         self.dims = dims
-        self.C = 1e-5
+        self.C = 1e-3
+        self._a = a
+        self._b = b
+        self._c = c
 
     def _similarity(self, a: Tensor, b: Tensor) -> Tensor:
         return (
@@ -32,11 +36,12 @@ class ssim(Module):
 
     def l(self, x: Tensor, y: Tensor) -> Tensor:
         return self._similarity(x.mean(self.dims, keepdim=True),
-                                y.mean(self.dims, keepdim=True))
+                                y.mean(self.dims, keepdim=True)).clamp(0)\
+                                ** self._a
     
     def c(self, x: Tensor, y: Tensor) -> Tensor:
         return self._similarity(x.std(self.dims, keepdim=True),
-                                y.std(self.dims, keepdim=True))
+                                y.std(self.dims, keepdim=True)) ** self._b
     
     def s(self, x: Tensor, y: Tensor) -> Tensor:
         """
@@ -50,9 +55,10 @@ class ssim(Module):
             xnorm
             .mul(  # normalized y.
                    ynorm)
-            .mean(self.dims, keepdim=True)
+            .sum(self.dims, keepdim=True).div(x.size(-1) * x.size(-2))
             # Term necessary only when both tensors are 0.
-            .add(self.C * .5 * (not xnorm.any() and not ynorm.any()))
+            .add(self.C * .5 * ((~xnorm.any(dim=self.dims, keepdim=True)) &
+                                (~ynorm.any(dim=self.dims, keepdim=True))))
             # Denominator.
             .div(
                     x.std(self.dims, keepdim=True)
@@ -60,7 +66,7 @@ class ssim(Module):
                     
                     .add(self.C * .5)
 
-                )).squeeze(self.dims)
+                )).squeeze(self.dims) ** self._c
     
     def forward(self, x: Tensor, y: Tensor) -> Tensor:
         """
@@ -71,7 +77,7 @@ class ssim(Module):
     
     def evaluate(self, x: Tensor, y: Tensor) -> Tensor:
         """
-        Real evaluation of a pair's structural similarity.
+        Multiplied criterion for verification.
         """
         x = x.detach()
         y = y.detach()

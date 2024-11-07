@@ -45,9 +45,6 @@ class ssim(Module):
                                 y.std(self.dims, keepdim=True)) ** self._b
     
     def s(self, x: Tensor, y: Tensor) -> Tensor:
-        """
-        Biased implementation for performance.
-        """
         xnorm = x.sub(x.mean(self.dims, keepdim=True))
         ynorm = y.sub(y.mean(self.dims, keepdim=True))
         return (

@@ -208,7 +208,7 @@ class msi2slstr_dataset(Dataset):
         :returns: Sum of individual source lengths
         :rtype: int
         """
-        return sum(map(lambda x: len(x), self.sources))
+        return len(self.sources) * len(self.sources[0])
 
 
 class sen3dataset(msi2slstr_dataset):

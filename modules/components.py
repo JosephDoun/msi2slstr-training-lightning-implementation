@@ -138,8 +138,7 @@ class Stem(nn.Module):
     def __init__(self, _in: int, _out: int, fuse_in: int, size: int,
                  *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.embed_y = EmbeddingY(fuse_in, _in, size)
-        self.embed_x = EmbeddingX(_in, _in)
+        self.proj_y = ProjectionY(fuse_in, _in, size)
         self.module = nn.Sequential(
             nn.BatchNorm2d(_in * 2, momentum=CONFIG['BATCHNORM_MOMENT']),
             nn.Conv2d(_in * 2, _out, kernel_size=3, padding=1, groups=2,
@@ -152,13 +151,12 @@ class Stem(nn.Module):
         self.residual = ResidualProj(2*_in, _out, stride=1, groups=2)
 
     def forward(self, x, y):
-        x = self.embed_x(x)
-        y = self.embed_y(y)
+        y = self.proj_y(y)
         x = concat([x, y], dim=-3)
         return self.module(x).add(self.residual(x))
 
 
-class EmbeddingY(nn.Module):
+class ProjectionY(nn.Module):
     def __init__(self, _in: int, _out: int, size: int, scale: int = 25,
                  *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)

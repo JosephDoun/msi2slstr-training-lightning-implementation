@@ -12,15 +12,18 @@ from config import DATA_CONFIG as DATA
 from typing import Any
 
 
-class YNorm2D(nn.Module):
+class StaticNorm2D(nn.Module):
     """
     Class providing the denorm method, reversing BatchNorm2D.
+
+    :param key: Dictionary key for stats loading, either "sen3" or "sen2".
+    :type key: str
     """
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, key: str, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        mean = Tensor(DATA['stats']['sen3']['mean'])\
+        mean = Tensor(DATA['stats'][key]['mean'])\
             .reshape(1, -1, 1, 1)
-        var = Tensor(DATA['stats']['sen3']['var'])\
+        var = Tensor(DATA['stats'][key]['var'])\
             .reshape(1, -1, 1, 1)
         self.e = 1e-5
         self.register_buffer("mean", mean)

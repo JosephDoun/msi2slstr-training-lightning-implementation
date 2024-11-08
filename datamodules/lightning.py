@@ -35,9 +35,6 @@ class msi2slstr_datamodule(LightningDataModule):
     
     def val_dataloader(self) -> DataLoader:
         return DataLoader(self.val,
-                          # Each batch requires a system call because
-                          # gdal is not thread-safe. A large batch_size
-                          # creates a bottle neck. NOTE.
                           batch_size=4,
                           pin_memory=True,
                           num_workers=4)

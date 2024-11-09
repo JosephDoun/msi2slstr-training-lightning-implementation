@@ -268,7 +268,11 @@ class msi2slstr(LightningModule):
         self.trainer.predict_dataloaders.dataset.output(indices, Y_hat)
 
     def configure_optimizers(self):
-        return Adam(self.parameters(), lr=self.hparams.lr, maximize=True)
+        opt = Adam(self.parameters(), lr=self.hparams.lr, maximize=True,
+                    betas=(.9, .92))
+        sch = CosineAnnealingWarmRestarts(opt, T_0=100, T_mult=2,
+                                          eta_min=1e-8)
+        return [opt], [{"scheduler": sch, "interval": "step"}]
 
 
 class msi2slstr_pretraining(msi2slstr):

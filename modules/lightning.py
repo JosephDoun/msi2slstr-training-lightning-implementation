@@ -43,11 +43,11 @@ class msi2slstr(LightningModule):
         super().__init__(*args, **kwargs)
         self.save_hyperparameters()
         self._extra_out = {}
-
-    def configure_model(self) -> None:
-        self.scale = Scale2D()
-        self.therm = OpticalToThermal(6, 6)
+        self.xnorm = StaticNorm2D("sen2")
+        self.ynorm = StaticNorm2D("sen3")
         self.stem = Stem(13, 32, 12, 100)
+        self.rescale = ReScale2D()
+        self.therm = OpticalToThermal(6, 6)
         self.down_a = DownsamplingBlock( 32,  64)
         self.down_b = DownsamplingBlock( 64, 128)
         self.down_c = DownsamplingBlock(128, 256)
@@ -57,7 +57,6 @@ class msi2slstr(LightningModule):
         self.up_a = UpsamplingBlock(128,  64, 100)
         self.head = Head(64, 12)
         self._initialize_weights()
-        return super().configure_model()
 
     def _initialize_weights(self):
         for _, m in self.named_modules():
@@ -88,6 +87,7 @@ class msi2slstr(LightningModule):
         x = self.down_c(c)
         self._extra_out['deep256'] = x
 
+        # The output of the bridge should be targeted to y directly.
         x = self.bridge(x)
         self._extra_out['deep512'] = x
 
@@ -105,39 +105,41 @@ class msi2slstr(LightningModule):
         x, y = data
 
         Y_hat = self(x, y)
-        loss = MSI2SLSTRLoss(x, Y_hat, y, self._extra_out['thermal_y'],
-                 self._extra_out['thermal_x'])
-        
+        loss, thermal = MSI2SLSTRLoss(x, Y_hat, y,
+                                      self._extra_out['thermal_y'],
+                                      self._extra_out['thermal_x'])
+
         # For channelwise evaluation.
-        energy = MSI2SLSTRLoss.energy(y, Y_hat).mean(0)
-        thermal = MSI2SLSTRLoss.evaluate(y[:, 6:],
-                                         self._extra_out['thermal_y']).mean(0)
+        energy = loss.mean(0)
+        thermal = thermal.mean(0)
 
         self._extra_out['x'] = x
         self._extra_out['y'] = y
         self._extra_out['Y_hat'] = Y_hat
 
-        batch_loss = loss.mean()
+        batch_loss = energy.mean()
+
         # For samplewise evaluation.
-        sample_loss = loss.detach().mean(-1)
+        sample_loss = loss.mean(-1)
 
         self.log("hp_metric", batch_loss)
-        self.log("loss/train", batch_loss,
+        self.log("training/loss/train", batch_loss,
                  logger=True, prog_bar=True, on_epoch=True,
                  on_step=True, batch_size=sample_loss.size(0))
 
-        self.log_dict({**{f"energy_{i}/train": v for i, v in
+        self.log_dict({**{f"training/energy_{i}/train": v for i, v in
                           enumerate(energy)},
 
-                       **{f"thermal_{i}/train": v for i, v in
+                       **{f"training/thermal_{i}/train": v for i, v in
                           enumerate(thermal)},
 
                        # Per date batch.
-                       **{f"{k}/train": v for k, v in zip(dates, sample_loss,
-                                                          strict=True)},
+                       **{f"training/{k}/train": v for k, v in
+                          zip(dates, sample_loss, strict=True)},
+
                        # Per tile.
-                       **{f"{k}/train": v for k, v in zip(tiles, sample_loss,
-                                                          strict=True)}
+                       **{f"training/{k}/train": v for k, v in
+                          zip(tiles, sample_loss, strict=True)}
                        },
                       on_step=True,
                       on_epoch=True,
@@ -156,19 +158,26 @@ class msi2slstr(LightningModule):
     def on_train_epoch_end(self) -> None:
         tboard: SummaryWriter = self.logger.experiment
 
-        tboard.add_images(tag="x/train",
+        tboard.add_images(tag="training/x/train",
                           img_tensor=channel_stretch(self._extra_out['x'][1])
                                                      .unsqueeze(1),
                           global_step=self.current_epoch,
                           dataformats='NCHW')
 
-        tboard.add_images(tag="y/train",
+        tboard.add_images(tag="training/y/train",
                           img_tensor=channel_stretch(self._extra_out['y'][1])
                                                      .unsqueeze(1),
                           global_step=self.current_epoch,
                           dataformats='NCHW')
 
-        tboard.add_images(tag="Y_hat/train",
+        tboard.add_images(tag="training/y/thermal",
+                          img_tensor=channel_stretch(self._extra_out
+                                                     ['thermal_y'][1])
+                                                     .unsqueeze(1),
+                          global_step=self.current_epoch,
+                          dataformats='NCHW')
+
+        tboard.add_images(tag="training/Y_hat/train",
                           img_tensor=channel_stretch(self._extra_out['Y_hat']
                                                      [1]).unsqueeze(1),
                           global_step=self.current_epoch,
@@ -180,32 +189,33 @@ class msi2slstr(LightningModule):
         x, y = data
 
         Y_hat = self(x, y)
-        loss = MSI2SLSTRLoss(x, Y_hat, y, self._extra_out['thermal_y'],
-                 self._extra_out['thermal_x'])
+        loss, thermal = MSI2SLSTRLoss(x, Y_hat, y,
+                                      self._extra_out['thermal_y'],
+                                      self._extra_out['thermal_x'])
 
         # For channelwise evaluation.
-        energy = MSI2SLSTRLoss.energy(y, Y_hat).mean(0)
-        thermal = MSI2SLSTRLoss.evaluate(y[:, 6:],
-                                         self._extra_out['thermal_y']).mean(0)
+        energy = loss.mean(0)
+        thermal = thermal.mean(0)
 
         batch_loss = loss.mean()
         sample_loss = loss.detach().mean(-1)
 
-        self.log("loss/val", batch_loss, prog_bar=True, on_epoch=True,
+        self.log("training/loss/val", batch_loss, prog_bar=True, on_epoch=True,
                  batch_size=sample_loss.size(0))
 
-        self.log_dict({**{f"energy_{i}/val": v for i, v in
+        self.log_dict({**{f"training/energy_{i}/val": v for i, v in
                           enumerate(energy)},
 
-                       **{f"thermal_{i}/val": v
+                       **{f"training/thermal_{i}/val": v
                           for i, v in enumerate(thermal)},
 
                        # Per date.
-                       **{f"{k}/val": v for k, v in zip(dates, sample_loss,
-                                                        strict=True)},
+                       **{f"training/{k}/val": v for k, v in
+                          zip(dates, sample_loss, strict=True)},
+
                        # Per tile.
-                       **{f"{k}/val": v for k, v in zip(tiles, sample_loss,
-                                                        strict=True)}
+                       **{f"training/{k}/val": v for k, v in
+                          zip(tiles, sample_loss, strict=True)}
                        },
                       on_step=False,
                       on_epoch=True,
@@ -220,7 +230,7 @@ class msi2slstr(LightningModule):
         dates, tiles = metadata
         x, y = data
         Y_hat = self(x, y)
-        
+
         loss, thermal = MSI2SLSTRLoss(x, Y_hat, y,
                                       self._extra_out['thermal_y'],
                                       self._extra_out['thermal_x'])
@@ -228,7 +238,7 @@ class msi2slstr(LightningModule):
         # For channelwise evaluation.
         energy = loss.mean(0)
         thermal = thermal.mean(0)
-        
+
         batch_loss = loss.mean()
         sample_loss = loss.detach().mean(-1)
 
@@ -240,11 +250,11 @@ class msi2slstr(LightningModule):
 
                        **{f"training/thermal_{i}/test": v
                           for i, v in enumerate(thermal)},
-                       
+
                        # Per date.
                        **{f"training/{k}/test": v for k, v in
                           zip(dates, sample_loss, strict=True)},
-                       
+
                        # Per tile.
                        **{f"training/{k}/test": v for k, v in
                           zip(tiles, sample_loss, strict=True)}
@@ -259,7 +269,7 @@ class msi2slstr(LightningModule):
 
     def predict_step(self, batch, batch_idx) -> None:
         indices, (x, y) = batch
-        
+
         # Predict
         Y_hat = self(x, y)
 
@@ -287,6 +297,9 @@ class msi2slstr_pretraining(msi2slstr):
 
         # Main loss.
         loss = SSIM(MSI2SLSTRLoss._usample(y), Y_hat)
+        loss2 = SSIM.s(concat([x[:, [2,3,8,10,11,12]],
+                               self._extra_out["thermal_x"]], dim=1),
+                               Y_hat)
 
         # For the OptToThermal optimization.
         thermal = SSIM(y[:, 6:], self._extra_out['thermal_y']).mean(0)
@@ -314,7 +327,7 @@ class msi2slstr_pretraining(msi2slstr):
         deep_loss = DEEPLOSS(self._extra_out['deep512'],
                              y=y).mean()
 
-        return batch_loss + deep_loss + thermal.mean()
+        return batch_loss + deep_loss + thermal.mean() + loss2.mean()
 
     def on_train_epoch_end(self) -> None:
         tboard: SummaryWriter = self.logger.experiment
@@ -330,7 +343,7 @@ class msi2slstr_pretraining(msi2slstr):
                                                      [1]).unsqueeze(1),
                           global_step=self.current_epoch,
                           dataformats='NCHW')
-        
+
         tboard.add_images(tag="pretraining/train/thermal",
                           img_tensor=channel_stretch(self._extra_out
                                                      ['thermal_y']
@@ -339,53 +352,61 @@ class msi2slstr_pretraining(msi2slstr):
                           dataformats='NCHW')
 
     def validation_step(self, batch, batch_idx) -> Tensor | Mapping[str, Any]:
-        ...
+        return None
 
     def test_step(self, batch, batch_idx) -> Tensor | Mapping[str, Any]:
-        ...
+        return None
 
 
 class thermal_prediction(LightningModule):
     def __init__(self, lr=1e-3, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+        self.norm = StaticNorm2D("sen3")
         self.module = OpticalToThermal(6, 6)
+        self._extra_out = {}
         self.save_hyperparameters()
 
     def forward(self, x):
-        return self.module(x)
+        x = self.norm(x)[:, :6]
+        return self.norm.denorm(self.module(x), slice(6, 13))
 
     def training_step(self, batch, batch_idx) -> Tensor | Mapping[str, Any]:
-        Y_hat = self(batch[:, :6])
+        Y_hat = self(batch)
         loss = SSIM(batch[:, 6:], Y_hat)
+        band_loss = loss.mean(0)
         batch_loss = loss.mean()
-        eval_loss = SSIM.evaluate(batch[:, 6:], Y_hat)
-        sample_loss = eval_loss.mean(0)
-        
-        self.log("hp_metric", eval_loss.mean(), batch_size=sample_loss.size(0))
+
+        self._extra_out["y"] = batch[batch_loss.mean(-1).argmax()]
+        self._extra_out["Y_hat"] = Y_hat[batch_loss.mean(-1).argmax()]
+
+        self.log("hp_metric", batch_loss, batch_size=band_loss.size(0))
         self.log("opt_to_thermal_experiment/train/loss",
-                 eval_loss.mean(),
-                 batch_size=batch.size(0), on_step=True, prog_bar=True)
-        
+                 batch_loss,
+                 batch_size=batch.size(0),
+                 on_step=True, prog_bar=True)
+
         self.log_dict({f"opt_to_thermal_experiment/train_{i}": v for i, v in
-                       enumerate(sample_loss)}, batch_size=batch.size(0),
+                       enumerate(band_loss)}, batch_size=batch.size(0),
                        on_step=True)
 
         return batch_loss
 
     def validation_step(self, batch, batch_idx) -> Tensor | Mapping[str, Any]:
-        Y_hat = self(batch[:, :6])
+        Y_hat = self(batch)
         loss = SSIM(batch[:, 6:], Y_hat)
+        band_loss = loss.mean(0)
         batch_loss = loss.mean()
         eval_loss = SSIM.evaluate(batch[:, 6:], Y_hat)
         sample_loss = eval_loss.mean(0)
-        
+
         self.log("opt_to_thermal_experiment/val/loss",
-                 eval_loss.mean(),
+                 batch_loss,
                  batch_size=batch.size(0), on_step=True, prog_bar=True)
-        
+
         self.log_dict({f"opt_to_thermal_experiment/val_{i}": v for i, v in
-                       enumerate(sample_loss)}, batch_size=batch.size(0),
+                       enumerate(band_loss)}, batch_size=batch.size(0),
                        on_step=True)
+
         return batch_loss
 
     def test_step(self, batch, batch_idx) -> Tensor | Mapping[str, Any]:

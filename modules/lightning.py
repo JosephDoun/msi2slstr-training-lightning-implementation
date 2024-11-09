@@ -1,40 +1,50 @@
 from lightning import LightningModule
+from torch.optim.optimizer import Optimizer
 
 from metrics.fusion import msi2slstr_loss
 from metrics.ssim import ssim
-from metrics.supervision import DeepLoss
+from metrics.latent import DeepLoss
 
 from transformations.normalization import channel_stretch
 
-from typing import Dict, Mapping
+from typing import Mapping
 from typing import Any
 
 from torch import Tensor
+from torch import no_grad
+from torch import concat
 from torch import set_float32_matmul_precision
 from torch.utils.tensorboard.writer import SummaryWriter
 from torch.optim import Adam
+from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 from torch.nn import Conv2d
+from torch.nn import MSELoss
+from torch.nn import CosineSimilarity
 
 from math import sqrt
 
+from .components import StaticNorm2D
 from .components import Stem
 from .components import DownsamplingBlock
 from .components import Bridge
 from .components import UpsamplingBlock
 from .components import Head
 from .components import OpticalToThermal
-from .components import Scale2D
+from .components import ReScale2D
 
-from torch.nn import CosineSimilarity
-from torch.nn import L1Loss
+from config import DATA_CONFIG
 
 set_float32_matmul_precision('medium')
 
-MSI2SLSTRLoss = msi2slstr_loss()
-SSIM = ssim()
-DEEPLOSS = DeepLoss([64, 128, 256, 512], [50,  25,  13,  13],
-                    loss_fn=CosineSimilarity(dim=2),
-                    maximize=True)
+set_float32_matmul_precision('high')
+
+MSI2SLSTRLoss = msi2slstr_loss(a=3)
+SSIM = ssim(c=3)
+DEEPLOSS = DeepLoss([512], [13],
+                    loss_fn=MSELoss(reduction="none"),
+                    maximize=False)
+
+from torch.nn.utils import clip_grad_norm_
 
 
 class msi2slstr(LightningModule):

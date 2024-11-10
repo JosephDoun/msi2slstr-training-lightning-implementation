@@ -37,34 +37,40 @@ class ssim(Module):
 
     def l(self, x: Tensor, y: Tensor) -> Tensor:
         return self._similarity(x.mean(self.dims, keepdim=True),
-                                y.mean(self.dims, keepdim=True)).clamp(0)\
-                                ** self._a
+                                y.mean(self.dims, keepdim=True)).pow(self._a)
     
     def c(self, x: Tensor, y: Tensor) -> Tensor:
-        return self._similarity(x.std(self.dims, keepdim=True),
-                                y.std(self.dims, keepdim=True)) ** self._b
+        sign = x.mean(self.dims, keepdim=True).sign().mul(
+              y.mean(self.dims, keepdim=True).sign()).int().squeeze(self.dims)
+        sign = sign | (sign == 0)
+        return sign * self._similarity(x.std(self.dims, keepdim=True),
+                                       y.std(self.dims, keepdim=True))\
+                                        .pow(self._b)
     
     def s(self, x: Tensor, y: Tensor) -> Tensor:
-        xnorm = x.sub(x.mean(self.dims, keepdim=True))
-        ynorm = y.sub(y.mean(self.dims, keepdim=True))
+        xstd = x.std(self.dims, keepdim=True)
+        ystd = y.std(self.dims, keepdim=True)
         return (
             # Numerator.
             # normalized x.
-            xnorm
-            .mul(  # normalized y.
-                   ynorm)
+            x.sub(x.mean(self.dims, keepdim=True))
+            .mul(# normalized y.
+                 y.sub(y.mean(self.dims, keepdim=True)))
             .sum(self.dims, keepdim=True).div(x.size(-1) * x.size(-2))
             # Term necessary only when both tensors are 0.
-            .add(self.C * .5 * ((~xnorm.any(dim=self.dims, keepdim=True)) &
-                                (~ynorm.any(dim=self.dims, keepdim=True))))
+            .add(self.C * .5 *
+                 
+                 # Remove constant if any std non-zero.
+                 ((~xstd.any(dim=self.dims, keepdim=True)) &
+
+                  (~ystd.any(dim=self.dims, keepdim=True))))
             # Denominator.
             .div(
-                    x.std(self.dims, keepdim=True)
-                    .mul(y.std(self.dims, keepdim=True))
+                    xstd.mul(ystd)
                     
                     .add(self.C * .5)
 
-                )).squeeze(self.dims) ** self._c
+                )).squeeze(self.dims).pow(self._c)
     
     def forward(self, x: Tensor, y: Tensor) -> Tensor:
         """

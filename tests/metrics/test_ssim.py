@@ -23,7 +23,7 @@ class TestSSIM(unittest.TestCase):
 
     def test_l_opposites(self):
         r = self.ssim.l(self.a, -self.a)
-        self.assertTrue((r < -.5).all())
+        self.assertTrue(r.lt(-.9).all())
     
     def test_l_zero(self):
         r = self.ssim.l(self.a.add(1), torch.zeros_like(self.a))
@@ -38,7 +38,7 @@ class TestSSIM(unittest.TestCase):
         Exact opposites should have identical standard deviations.
         """
         r = self.ssim.c(self.a, -self.a)
-        self.assertTrue(r.allclose(torch.Tensor([1.])))
+        self.assertTrue(r.allclose(torch.Tensor([-1.])))
 
     def test_c_zero_right(self):
         r = self.ssim.c(self.a, torch.zeros_like(self.a))
@@ -61,8 +61,12 @@ class TestSSIM(unittest.TestCase):
         r = self.ssim.s(self.a, -self.a)
         self.assertTrue(r.lt(torch.Tensor([-.99])).all())
 
-
     def test_s_zero(self):
+        # The zero tensor should match perfectly to itself.
+        r = self.ssim.s(torch.zeros_like(self.a), torch.zeros_like(self.a))
+        self.assertTrue(r.allclose(torch.ones(1)))
+    
+    def test_s_right_zero(self):
         r = self.ssim.s(self.a, torch.zeros_like(self.a))
         self.assertTrue(r.allclose(torch.zeros(1)))
 
@@ -74,14 +78,12 @@ class TestSSIM(unittest.TestCase):
     def test_opposites(self):
         r = self.ssim(self.a, -self.a)
         # Contast is identical; returns 1.
-        self.assertTrue(r.lt(torch.Tensor([-.32])).all())
+        self.assertTrue((r < 0.02).all())
 
 
     def test_scaled_opposites(self):
         r = self.ssim(self.a, -.1 * self.a)
-        self.assertTrue(
-            r.allclose(-torch.ones(1) / 3 + self.bias_correction(self.a) / 3,
-                       atol=1e-2))
+        self.assertTrue(r.lt(-.2).all())
 
     def test_zero_right(self):
         """

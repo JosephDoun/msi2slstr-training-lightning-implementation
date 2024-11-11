@@ -466,3 +466,17 @@ class thermal_prediction(LightningModule):
 
     def configure_optimizers(self):
         return Adam(self.parameters(), lr=self.hparams.lr, maximize=True)
+
+
+class msi2slstr_debug(msi2slstr):
+    def configure_gradient_clipping(self, optimizer: Optimizer,
+                                    gradient_clip_val: float = None,
+                                    gradient_clip_algorithm: str = None) -> None:
+        for n, p in self.named_parameters():
+            self.print(n, p.grad.abs().mean())
+            ...
+        norm = clip_grad_norm_(self.parameters(), max_norm=gradient_clip_val)
+        self.print("Gradient norm: ", norm)
+        return super().configure_gradient_clipping(optimizer,
+                                                   gradient_clip_val,
+                                                   gradient_clip_algorithm)

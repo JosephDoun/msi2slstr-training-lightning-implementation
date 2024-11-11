@@ -76,17 +76,24 @@ class msi2slstr(LightningModule):
                     m.bias.data.fill_(.0)
 
     def forward(self, x, y) -> Tensor:
-        optic_y = y[:, [0, 1, 2, 3, 4, 5]]
-        optic_x = self.scale(x[:, [2, 3, 8, 10, 11, 12]], optic_y)
-
-        # Only needed during training.
-        self._extra_out['thermal_y'] = self.therm(optic_y)
-        
-        # This serves only as target.
-        self.therm.eval()
-        self._extra_out['thermal_x'] = self.therm(optic_x).detach()
-
+        x = self.xnorm(x)
+        y = self.ynorm(y)
         a = self.stem(x, y)
+
+        optic_y = y[:, [0, 1, 2, 3, 4, 5]]
+
+        # x scaled to value range of y.
+        optic_x = self.rescale(x=x[:, DATA_CONFIG['sen2_bands']],
+                               ref=optic_y)
+
+        self._extra_out['thermal_y'] = self.ynorm.denorm(
+            self.therm(optic_y), channels=slice(6, 13, 1))
+
+        # This serves only as target.
+        # Eval not necessary as stats guaranteed to be same.
+        with no_grad():
+            self._extra_out['thermal_x'] = self.ynorm.denorm(
+                self.therm(optic_x).detach(), channels=slice(6, 13, 1))
 
         b = self.down_a(a)
         self._extra_out['deep64'] = b
@@ -104,10 +111,8 @@ class msi2slstr(LightningModule):
         x = self.up_c(x, c)
         x = self.up_b(x, b)
         x = self.up_a(x, a)
-        return self.head(x)
-
-    def on_load_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
-        return super().on_load_checkpoint(checkpoint)
+        x = self.head(x)
+        return self.ynorm.denorm(x)
 
     def training_step(self, batch, batch_idx) -> Tensor | Mapping[str, Any]:
         data, metadata = batch
@@ -157,14 +162,13 @@ class msi2slstr(LightningModule):
                       logger=True,
                       batch_size=sample_loss.size(0))
 
-        deep_loss = DEEPLOSS(self._extra_out['deep64'],
-                             self._extra_out['deep128'],
-                             self._extra_out['deep256'],
-                             self._extra_out['deep512'],
+        deep_loss = DEEPLOSS(self._extra_out['deep512'],
                              y=y).mean()
 
-        return batch_loss + deep_loss
-    
+        return sum([batch_loss,
+                    deep_loss,
+                    thermal.mean()])
+
     def on_train_epoch_end(self) -> None:
         tboard: SummaryWriter = self.logger.experiment
 

@@ -415,6 +415,21 @@ class thermal_prediction(LightningModule):
 
         return batch_loss
 
+    def on_train_epoch_end(self) -> None:
+        tboard: SummaryWriter = self.logger.experiment
+
+        tboard.add_images(tag="opt_to_thermal_experiment/train/y",
+                          img_tensor=channel_stretch(self._extra_out['y'])
+                                                     .unsqueeze(1),
+                          global_step=self.current_epoch,
+                          dataformats='NCHW')
+
+        tboard.add_images(tag="opt_to_thermal_experiment/train/Y_hat",
+                          img_tensor=channel_stretch(self._extra_out['Y_hat'])
+                                                     .unsqueeze(1),
+                          global_step=self.current_epoch,
+                          dataformats='NCHW')
+
     def validation_step(self, batch, batch_idx) -> Tensor | Mapping[str, Any]:
         Y_hat = self(batch)
         loss = SSIM(batch[:, 6:], Y_hat)
@@ -434,18 +449,17 @@ class thermal_prediction(LightningModule):
         return batch_loss
 
     def test_step(self, batch, batch_idx) -> Tensor | Mapping[str, Any]:
-        Y_hat = self(batch[:, :6])
+        Y_hat = self(batch)
         loss = SSIM(batch[:, 6:], Y_hat)
+        band_loss = loss.mean(0)
         batch_loss = loss.mean()
-        eval_loss = SSIM.evaluate(batch[:, 6:], Y_hat)
-        sample_loss = eval_loss.mean(0)
 
         self.log("opt_to_thermal_experiment/test/loss",
-                 eval_loss.mean(),
+                 batch_loss,
                  batch_size=batch.size(0), on_step=True, prog_bar=True)
 
         self.log_dict({f"opt_to_thermal_experiment/test_{i}": v for i, v in
-                       enumerate(sample_loss)}, batch_size=batch.size(0),
+                       enumerate(band_loss)}, batch_size=batch.size(0),
                        on_step=True)
 
         return batch_loss

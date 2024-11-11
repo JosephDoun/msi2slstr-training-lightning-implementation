@@ -300,12 +300,22 @@ class msi2slstr(LightningModule):
 
 
 class msi2slstr_pretraining(msi2slstr):
+
+    def __init__(self, lr: float = 0.001, *args: Any, **kwargs: Any) -> None:
+        super().__init__(lr, *args, **kwargs)
+        self.therm = thermal_prediction.load_from_checkpoint(
+            "pretrained/thermal.ckpt").module
+
     def training_step(self, batch, batch_idx) -> Tensor | Mapping[str, Any]:
         (x, y), _ = batch
-        
-        x.normal_(0, .01)
+
+        for i in range(13):
+            x[:, [i]].normal_(self.xnorm.mean.squeeze()[i].item(),
+                              self.xnorm.var.squeeze()[i].sqrt().item())
+
+        x.normal_()
         Y_hat = self(x, y)
-        
+
         self._extra_out['y'] = y
         self._extra_out['Y_hat'] = Y_hat
 

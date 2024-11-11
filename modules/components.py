@@ -42,22 +42,23 @@ class OpticalToThermal(nn.Module):
     def __init__(self, _in: int, _out: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.encoder = nn.Sequential(
+            nn.BatchNorm2d(_in, momentum=1e-3),
             nn.Conv2d(_in, _in * 2, 1),
-            nn.GroupNorm(1, _in * 2),
+            nn.BatchNorm2d(_in * 2, momentum=1e-3),
             Activation(inplace=True),
             nn.Conv2d(_in * 2, _in * 4, 1),
             )
+        self.score = nn.Sequential(
+            nn.BatchNorm2d(_in * 4, momentum=1e-3),
+            Activation(inplace=True),
+            nn.Conv2d(_in * 4, _in * 4, 1, bias=False, groups=_in),
+            nn.Sigmoid()
+        )
         self.decoder = nn.Sequential(
-            nn.GroupNorm(1, _in * 4),
+            nn.BatchNorm2d(_in * 4, momentum=1e-3),
             Activation(inplace=True),
             nn.Conv2d(_in * 4, _out, 1),
-            nn.GroupNorm(1, _out)
-        )
-        self.score = nn.Sequential(
-            nn.GroupNorm(1, _in * 4),
-            Activation(inplace=True),
-            nn.Conv2d(_in * 4, _in * 4, 1, groups=_in),
-            nn.Sigmoid()
+            nn.BatchNorm2d(_out, momentum=1e-3),
         )
 
     def forward(self, x: Tensor):

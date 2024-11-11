@@ -435,8 +435,6 @@ class thermal_prediction(LightningModule):
         loss = SSIM(batch[:, 6:], Y_hat)
         band_loss = loss.mean(0)
         batch_loss = loss.mean()
-        eval_loss = SSIM.evaluate(batch[:, 6:], Y_hat)
-        sample_loss = eval_loss.mean(0)
 
         self.log("opt_to_thermal_experiment/val/loss",
                  batch_loss,

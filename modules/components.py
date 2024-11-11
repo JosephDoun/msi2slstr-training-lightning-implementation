@@ -250,12 +250,10 @@ class ASPP(nn.Module):
 class DualConv(nn.Module):
     def __init__(self, _in: int, _out: int, *, kernel_size: int = 3,
                  stride: int = 1, dilation: int = 1, padding: int = 1,
-                 groups: int = 1, batch_norm_momentum: float = None,
-                 **kwargs) -> None:
+                 groups: int = 1, **kwargs) -> None:
         super().__init__(**kwargs)
         self.module = nn.Sequential(
-            nn.BatchNorm2d(_in, momentum=batch_norm_momentum or
-                           CONFIG['BATCHNORM_MOMENT']),
+            nn.BatchNorm2d(_in, momentum=CONFIG['BATCHNORM_MOMENT']),
             Activation(inplace=True),
             nn.Conv2d(in_channels=_in, out_channels=_out,
                       kernel_size=kernel_size,
@@ -264,8 +262,7 @@ class DualConv(nn.Module):
                       dilation=dilation,
                       padding_mode=CONFIG['PADDING_MODE'],
                       groups=groups),
-            nn.BatchNorm2d(_out, momentum=batch_norm_momentum or
-                           CONFIG['BATCHNORM_MOMENT']),
+            nn.BatchNorm2d(_out, momentum=CONFIG['BATCHNORM_MOMENT']),
             Activation(inplace=True),
             nn.Conv2d(in_channels=_out, out_channels=_out,
                       kernel_size=kernel_size,

@@ -172,20 +172,6 @@ class ProjectionY(nn.Module):
         return self.module(x)
 
 
-class EmbeddingX(nn.Module):
-    def __init__(self, _in: int, _out: int, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-
-        self.module = nn.Sequential(
-             nn.InstanceNorm2d(_in, affine=True),
-             nn.Conv2d(_in, _out, kernel_size=3, stride=1, padding=1,
-                       padding_mode=CONFIG["PADDING_MODE"])
-        )
-
-    def forward(self, x):
-        return self.module(x)
-
-
 class CrossGatedConcat(nn.Module):
     def __init__(self, _in: int, _out: int, conn_in: int,
                  *args, **kwargs) -> None:

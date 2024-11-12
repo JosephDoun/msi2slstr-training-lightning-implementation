@@ -64,7 +64,8 @@ class FusionImage(Image):
 
         Translate("output.tif", self.dataset, xRes=10, yRes=10, noData=0,
                   callback=TermProgress, creationOptions=["COMPRESS=ZSTD",
-                                                          "PREDICTOR=2"])
+                                                          "PREDICTOR=2",
+                                                          "BIGTIFF=YES"])
         
         self.dataset = Open("output.tif", GA_Update)
 

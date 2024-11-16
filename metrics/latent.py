@@ -35,6 +35,7 @@ class DeepLoss(Module):
         for module, x_tensor in zip(self.modulelist, x, strict=True):
             x_tensor = module(x_tensor)
             x_tensor = x_tensor.view(x_tensor.size(0), x_tensor.size(1), -1)
-            loss += self._fn(x_tensor, y).mean(-1)
+            _loss = self._fn(x_tensor, y)
+            loss += _loss.div(_loss.max() + 1e-5).mean(-1)
 
         return self.sign * loss

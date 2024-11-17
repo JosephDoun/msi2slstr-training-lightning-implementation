@@ -398,13 +398,15 @@ class thermal_prediction(LightningModule):
         self._extra_out = {}
         self.save_hyperparameters()
 
+        self.loss = ssim(a=1, b=.5, c=3)
+
     def forward(self, x):
         x = self.norm(x)[:, :6]
         return self.norm.denorm(self.module(x), slice(6, 13))
 
     def training_step(self, batch, batch_idx) -> Tensor | Mapping[str, Any]:
         Y_hat = self(batch)
-        loss = SSIM(batch[:, 6:], Y_hat)
+        loss = self.loss(batch[:, 6:], Y_hat)
         band_loss = loss.mean(0)
         batch_loss = loss.mean()
 
@@ -440,7 +442,7 @@ class thermal_prediction(LightningModule):
 
     def validation_step(self, batch, batch_idx) -> Tensor | Mapping[str, Any]:
         Y_hat = self(batch)
-        loss = SSIM(batch[:, 6:], Y_hat)
+        loss = self.loss(batch[:, 6:], Y_hat)
         band_loss = loss.mean(0)
         batch_loss = loss.mean()
 
@@ -456,7 +458,7 @@ class thermal_prediction(LightningModule):
 
     def test_step(self, batch, batch_idx) -> Tensor | Mapping[str, Any]:
         Y_hat = self(batch)
-        loss = SSIM(batch[:, 6:], Y_hat)
+        loss = self.loss(batch[:, 6:], Y_hat)
         band_loss = loss.mean(0)
         batch_loss = loss.mean()
 

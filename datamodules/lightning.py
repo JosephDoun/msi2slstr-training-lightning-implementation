@@ -40,7 +40,7 @@ class msi2slstr_datamodule(LightningDataModule):
                           num_workers=4)
     
     def test_dataloader(self) -> DataLoader:
-        return DataLoader(self.test, batch_size=4)
+        return DataLoader(self.test, batch_size=4, num_workers=4)
     
     def predict_dataloader(self) -> DataLoader:
         return DataLoader(predictor_dataset(self.hparams.datadir),

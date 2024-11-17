@@ -488,3 +488,12 @@ class msi2slstr_debug(msi2slstr):
         return super().configure_gradient_clipping(optimizer,
                                                    gradient_clip_val,
                                                    gradient_clip_algorithm)
+
+
+class msi2slstr_predict(msi2slstr):
+    def __init__(self, lr: float = 0.001, size: int = 100,
+                 *args: Any, **kwargs: Any) -> None:
+        super().__init__(lr, size, *args, **kwargs)
+
+    def predict_step(self, batch, batch_idx) -> None:
+        return super().predict_step(batch, batch_idx)

@@ -41,7 +41,7 @@ trainer:
   reload_dataloaders_every_n_epochs: 0
   default_root_dir: null
 model:
-  class_path: msi2slstr
+  class_path: msi2slstr_predict
 data: 
   class_path: msi2slstr_datamodule
   init_args:

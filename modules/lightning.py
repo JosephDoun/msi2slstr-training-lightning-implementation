@@ -301,7 +301,7 @@ class msi2slstr(LightningModule):
 
     def configure_optimizers(self):
         opt = Adam(self.parameters(), lr=self.hparams.lr, maximize=True,
-                    betas=(.9, .92))
+                    betas=(.9, .92), weight_decay=1e-10, eps=1e-6)
         sch = CosineAnnealingWarmRestarts(opt, T_0=100, T_mult=2,
                                           eta_min=1e-8)
         return [opt], [{"scheduler": sch, "interval": "step"}]

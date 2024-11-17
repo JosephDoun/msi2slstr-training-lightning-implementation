@@ -48,22 +48,24 @@ from torch.nn.utils import clip_grad_norm_
 
 class msi2slstr(LightningModule):
 
-    def __init__(self, lr: float = 1e-3, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, lr: float = 1e-3, size: int = 100,
+                 *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+        assert not size % 50, "Size not multiple of 50."
         self.save_hyperparameters()
         self._extra_out = {}
         self.xnorm = StaticNorm2D("sen2")
         self.ynorm = StaticNorm2D("sen3")
-        self.stem = Stem(13, 32, 12, 100)
+        self.stem = Stem(13, 32, 12, size)
         self.rescale = ReScale2D()
         self.therm = OpticalToThermal(6, 6)
         self.down_a = DownsamplingBlock( 32,  64)
         self.down_b = DownsamplingBlock( 64, 128)
         self.down_c = DownsamplingBlock(128, 256)
-        self.bridge = Bridge(256, 512) # 13
-        self.up_c = UpsamplingBlock(512, 256,  25)
-        self.up_b = UpsamplingBlock(256, 128,  50)
-        self.up_a = UpsamplingBlock(128,  64, 100)
+        self.bridge = Bridge(256, 512) # 13x13
+        self.up_c = UpsamplingBlock(512, 256, size // 4)
+        self.up_b = UpsamplingBlock(256, 128, size // 2)
+        self.up_a = UpsamplingBlock(128,  64, size)
         self.head = Head(64, 12)
         self._initialize_weights()
 

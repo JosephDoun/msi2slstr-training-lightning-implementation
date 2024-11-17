@@ -124,9 +124,11 @@ class msi2slstr(LightningModule):
         x, y = data
 
         Y_hat = self(x, y)
-        loss, thermal = MSI2SLSTRLoss(x, Y_hat, y,
-                                      self._extra_out['thermal_y'],
-                                      self._extra_out['thermal_x'])
+
+        loss = self.loss(x, Y_hat, y, self._extra_out['thermal_y'],
+                         self._extra_out['thermal_x'])
+
+        thermal = self.thermloss(self._extra_out['thermal_y'], y[:, 6:])
 
         # For channelwise evaluation.
         energy = loss.mean(0)
@@ -169,9 +171,7 @@ class msi2slstr(LightningModule):
         deep_loss = DEEPLOSS(self._extra_out['deep512'],
                              y=y).mean()
 
-        return sum([batch_loss,
-                    deep_loss,
-                    thermal.mean()])
+        return batch_loss.add(deep_loss).add(thermal.mean())
 
     def on_train_epoch_end(self) -> None:
         tboard: SummaryWriter = self.logger.experiment
@@ -207,9 +207,12 @@ class msi2slstr(LightningModule):
         x, y = data
 
         Y_hat = self(x, y)
-        loss, thermal = MSI2SLSTRLoss(x, Y_hat, y,
-                                      self._extra_out['thermal_y'],
-                                      self._extra_out['thermal_x'])
+
+        loss = self.loss(x, Y_hat, y,
+                                  self._extra_out['thermal_y'],
+                                  self._extra_out['thermal_x'])
+        
+        thermal = self.thermloss(self._extra_out['thermal_y'], y[:, 6:])
 
         # For channelwise evaluation.
         energy = loss.mean(0)
@@ -249,9 +252,10 @@ class msi2slstr(LightningModule):
         x, y = data
         Y_hat = self(x, y)
 
-        loss, thermal = MSI2SLSTRLoss(x, Y_hat, y,
-                                      self._extra_out['thermal_y'],
-                                      self._extra_out['thermal_x'])
+        loss = self.loss(x, Y_hat, y,
+                                  self._extra_out['thermal_y'],
+                                  self._extra_out['thermal_x'])
+        thermal = self.thermloss(self._extra_out['thermal_y'], y[:, 6:])
 
         # For channelwise evaluation.
         energy = loss.mean(0)

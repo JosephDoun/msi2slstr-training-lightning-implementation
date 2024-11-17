@@ -69,6 +69,9 @@ class msi2slstr(LightningModule):
         self.head = Head(64, 12)
         self._initialize_weights()
 
+        self.loss = msi2slstr_loss(a=2, b=1, c=1)
+        self.thermloss = ssim(a=1, b=.5, c=3)
+
     def _initialize_weights(self):
         for _, m in self.named_modules():
             if isinstance(m, Conv2d) and m.weight.requires_grad:

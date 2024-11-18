@@ -4,7 +4,8 @@ from typing import Any
 
 class Average(Tensor):
     """
-    ...
+    Tensor subclass with overriden add operator and internal counter
+    that keeps track of a running mean.
     """
 
     def __init__(self, *args, **kwargs):

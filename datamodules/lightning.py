@@ -28,10 +28,13 @@ class msi2slstr_datamodule(LightningDataModule):
                          Generator().manual_seed(0))
 
     def train_dataloader(self) -> DataLoader:
+        # TODO add sampler
         return DataLoader(self.train, batch_size=self.hparams.batch_size,
                           pin_memory=True,
                           shuffle=True,
-                          num_workers=self.hparams.num_workers)
+                          num_workers=self.hparams.num_workers,
+                          sampler=None,
+                          batch_sampler=None)
     
     def val_dataloader(self) -> DataLoader:
         return DataLoader(self.val,

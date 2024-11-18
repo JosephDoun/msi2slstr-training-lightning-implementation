@@ -10,7 +10,8 @@ trainer:
   callbacks:
     - class_path: LearningRateFinder
       init_args:
-        early_stop_threshold: 10
+        max_lr: 0.01
+        min_lr: 0.00000001
     - class_path: ModelCheckpoint
       init_args:
         dirpath: pretrained
@@ -34,8 +35,8 @@ trainer:
   enable_checkpointing: null
   enable_progress_bar: null
   enable_model_summary: null
-  accumulate_grad_batches: 1
-  gradient_clip_val: 1
+  accumulate_grad_batches: 5
+  gradient_clip_val: 10
   gradient_clip_algorithm: null
   deterministic: null
   benchmark: null

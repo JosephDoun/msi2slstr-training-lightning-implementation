@@ -90,7 +90,7 @@ class UpsamplingBlock(nn.Module):
     def __init__(self, _in: int, _out: int, size: int,
                  *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.up = nn.Upsample((size, size), mode='nearest')
+        self.up = nn.UpsamplingNearest2d((size, size))
         self.concat = CrossGatedConcat(_in, _out, _out // 2)
         self.prop = DualConv(_in + _out // 2, _out, stride=1)
 
@@ -163,7 +163,7 @@ class ProjectionY(nn.Module):
         super().__init__(*args, **kwargs)
         self.module = nn.Sequential(
              nn.BatchNorm2d(_in, momentum=CONFIG["BATCHNORM_MOMENT"]),
-             nn.Upsample((size, size), mode="nearest") if size else None,
+             nn.UpsamplingNearest2d((size, size)),
              nn.Conv2d(_in, _out, kernel_size=3, stride=1, padding=scale,
                        dilation=scale, padding_mode=CONFIG["PADDING_MODE"])
         )

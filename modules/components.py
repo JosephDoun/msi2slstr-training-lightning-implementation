@@ -42,29 +42,36 @@ class OpticalToThermal(nn.Module):
     def __init__(self, _in: int, _out: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.encoder = nn.Sequential(
-            nn.BatchNorm2d(_in, momentum=1e-3),
+            nn.BatchNorm2d(_in, momentum=1e-1),
             nn.Conv2d(_in, _in * 2, 1),
-            nn.BatchNorm2d(_in * 2, momentum=1e-3),
-            Activation(inplace=True),
-            nn.Conv2d(_in * 2, _in * 4, 1),
+            DualConv(_in * 2, _in * 4, padding=0, kernel_size=1),
             )
-        self.score = nn.Sequential(
-            nn.BatchNorm2d(_in * 4, momentum=1e-3),
-            Activation(inplace=True),
-            nn.Conv2d(_in * 4, _in * 4, 1, bias=False, groups=_in),
-            nn.Sigmoid()
-        )
+        
         self.decoder = nn.Sequential(
-            nn.BatchNorm2d(_in * 4, momentum=1e-3),
-            Activation(inplace=True),
-            nn.Conv2d(_in * 4, _out, 1),
-            nn.BatchNorm2d(_out, momentum=1e-3),
+            DualConv(_in * 4, _in * 2, kernel_size=1, padding=0),
+            nn.Conv2d(_in * 2, _out, 1),
+            nn.BatchNorm2d(_out, momentum=1e-1),
         )
 
     def forward(self, x: Tensor):
         x = self.encoder(x)
-        s = self.score(x)
-        return self.decoder(x * s)
+        return self.decoder(x)
+
+
+class SNE(nn.Module):
+    def __init__(self, _in, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.module = nn.Sequential(
+            nn.Linear(_in, _in // 8, bias=False),
+            Activation(inplace=True),
+            nn.Linear(_in // 8, _in, bias=False),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x: Tensor):
+        return x.mul(self.module(x.std((-1, -2))).view(x.size(0),
+                                                        x.size(1),
+                                                        1, 1))
 
 
 class ReScale2D(nn.Module):

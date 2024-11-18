@@ -1,10 +1,12 @@
 from torch import Tensor
+from torch import stack
 from torch import concat
 
 from transformations.resampling import AvgDownSamplingModule
 from transformations.resampling import UpsamplingModule
 
 from .ssim import ssim
+
 from config import DATA_CONFIG
 
 
@@ -16,6 +18,7 @@ class msi2slstr_loss(ssim):
     """
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self.signature = ssim((-3,))
 
     def _dsample(self, x: Tensor):
         return AvgDownSamplingModule(x)

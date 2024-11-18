@@ -51,9 +51,17 @@ class msi2slstr_loss(ssim):
             .unsqueeze(1)
         
         thermal = super().forward(thermal_estimate_y, y[:, 6:])
+        
+        thermal = thermal.mul(
+            self.signature(thermal_estimate_y, y[:, 6:])
+            .clamp(0)
+            .mean((-1, -2))
+            .unsqueeze(1)
+            )
+
         # Respecting zero pixels of y but not of x. Not important.
-        energy = super().forward(y, self._dsample(Y_hat))
-        return energy.mul(structure), thermal
+        energy = super().forward(self._dsample(Y_hat), y)
+        return energy.mul(signature).mul(structure), thermal
 
     def evaluate(self, y: Tensor, Y_hat: Tensor) -> Tensor:
         return super().evaluate(y, AvgDownSamplingModule(Y_hat))

@@ -44,9 +44,8 @@ class msi2slstr_loss(ssim):
 
         # Not respecting zero pixels of y.
         # X corr minus Y residuals.
-        structure = stack([self.s(x, Y_hat),
-                           (1 - self.s(Y_hat, self._usample(y)).clamp(.1))])\
-                            .mean(0)
+        structure = self.s(x, Y_hat).mul(
+            1 - self.s(Y_hat, self._usample(y)).clamp(0))
 
         signature = self.signature(self._dsample(Y_hat), y)\
             .clamp(0)\

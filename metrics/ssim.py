@@ -66,7 +66,7 @@ class ssim(Module):
                  # Remove constant if any std non-zero.
                  ((~xstd.any(dim=self.dims, keepdim=True)) &
                   (~ystd.any(dim=self.dims, keepdim=True))))
-                  
+
             # Denominator.
             .div(
                     xstd.mul(ystd)

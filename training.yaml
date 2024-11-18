@@ -10,14 +10,15 @@ trainer:
   callbacks:
     - class_path: LearningRateFinder
       init_args:
-        early_stop_threshold: 10
+        max_lr: 0.1
+        min_lr: 0.0001
     - class_path: ModelCheckpoint
       init_args:
         save_last: link
         dirpath: models
         filename: msi2slstr
   fast_dev_run: false
-  max_epochs: 3
+  max_epochs: 5
   min_epochs: 0
   max_steps: -1
   min_steps: -1
@@ -35,13 +36,13 @@ trainer:
   enable_progress_bar: null
   enable_model_summary: null
   accumulate_grad_batches: 4
-  gradient_clip_val: 1000
+  gradient_clip_val: 10
   gradient_clip_algorithm: null
   deterministic: null
   benchmark: null
   inference_mode: true
   use_distributed_sampler: true
-  profiler: null # lightning.pytorch.profilers.SimpleProfiler
+  profiler: null
   detect_anomaly: false
   barebones: false
   plugins: null
@@ -59,4 +60,3 @@ data:
 optimizer: null
 lr_scheduler: null
 ckpt_path: pretrained/last.ckpt
-

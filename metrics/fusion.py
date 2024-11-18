@@ -33,12 +33,23 @@ class msi2slstr_loss(ssim):
         :rtype: tuple
         """
         # zero y pixels must be masked out of x for consistency.
-        x = concat([x[:, DATA_CONFIG['sen2_bands']], thermal_estimate_x], dim=-3)
-        # Mask out irrelevant pixels using LST band.
-        x = self._mask_x(x, y[:, [-1]])
-        # Not respecting zero pixels pf y.
-        structure = self.s(x, Y_hat)
-        # Scalar.
+        x = concat([x[:, DATA_CONFIG['sen2_bands']], thermal_estimate_x],
+                   dim=-3)
+
+        # Mask out irrelevant pixels using the green band.
+        x = self._mask_x(x, y[:, [0]])
+
+        # Not respecting zero pixels of y.
+        # X corr minus Y residuals.
+        structure = stack([self.s(x, Y_hat),
+                           (1 - self.s(Y_hat, self._usample(y)).clamp(.1))])\
+                            .mean(0)
+
+        signature = self.signature(self._dsample(Y_hat), y)\
+            .clamp(0)\
+            .mean((-1, -2))\
+            .unsqueeze(1)
+        
         thermal = super().forward(thermal_estimate_y, y[:, 6:])
         # Respecting zero pixels of y but not of x. Not important.
         energy = super().forward(y, self._dsample(Y_hat))

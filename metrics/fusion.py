@@ -65,3 +65,9 @@ class msi2slstr_loss(ssim):
 
     def evaluate(self, y: Tensor, Y_hat: Tensor) -> Tensor:
         return super().evaluate(y, AvgDownSamplingModule(Y_hat))
+    
+    def __call__(self, x: Tensor, Y_hat: Tensor, y: Tensor,
+                 thermal_estimate_y: Tensor,
+                 thermal_estimate_x: Tensor) -> Tensor:
+        return super().__call__(x, Y_hat, y, thermal_estimate_y,
+                                thermal_estimate_x)

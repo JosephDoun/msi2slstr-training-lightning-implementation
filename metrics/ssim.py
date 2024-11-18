@@ -32,20 +32,21 @@ class ssim(Module):
             # Numerator.
             a.mul(b).mul(2).add(self.C)
             # Denominator.
-            .div(a.pow(2).add(b.pow(2)).add(self.C))
+            .div(
+                a.pow(2).add(b.pow(2))
+                .add(self.C)
+                )
             .squeeze(self.dims))
 
     def l(self, x: Tensor, y: Tensor) -> Tensor:
         return self._similarity(x.mean(self.dims, keepdim=True),
-                                y.mean(self.dims, keepdim=True)).pow(self._a)
-    
+                                y.mean(self.dims, keepdim=True))\
+                                .pow(self._a)
+
     def c(self, x: Tensor, y: Tensor) -> Tensor:
-        sign = x.mean(self.dims, keepdim=True).sign().mul(
-              y.mean(self.dims, keepdim=True).sign()).int().squeeze(self.dims)
-        sign = sign | (sign == 0)
-        return sign * self._similarity(x.std(self.dims, keepdim=True),
-                                       y.std(self.dims, keepdim=True))\
-                                        .pow(self._b)
+        return self._similarity(x.std(self.dims, keepdim=True),
+                                y.std(self.dims, keepdim=True))\
+                                .pow(self._b)
     
     def s(self, x: Tensor, y: Tensor) -> Tensor:
         xstd = x.std(self.dims, keepdim=True)
@@ -56,29 +57,31 @@ class ssim(Module):
             x.sub(x.mean(self.dims, keepdim=True))
             .mul(# normalized y.
                  y.sub(y.mean(self.dims, keepdim=True)))
-            .sum(self.dims, keepdim=True).div(x.size(-1) * x.size(-2))
+            .sum(self.dims, keepdim=True).div(
+                Tensor([x.size(d) for d in self.dims]).prod()
+                )
             # Term necessary only when both tensors are 0.
             .add(self.C * .5 *
                  
                  # Remove constant if any std non-zero.
                  ((~xstd.any(dim=self.dims, keepdim=True)) &
-
                   (~ystd.any(dim=self.dims, keepdim=True))))
+                  
             # Denominator.
             .div(
                     xstd.mul(ystd)
-                    
+
                     .add(self.C * .5)
 
                 )).squeeze(self.dims).pow(self._c)
-    
+
     def forward(self, x: Tensor, y: Tensor) -> Tensor:
         """
         Averaged structural similarity loss with a range of values of
         [-1, 1] for maximization.
         """
         return stack([self.l(x, y), self.c(x, y), self.s(x, y)]).mean(0)
-    
+
     def evaluate(self, x: Tensor, y: Tensor) -> Tensor:
         """
         Multiplied criterion for verification.

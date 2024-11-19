@@ -19,7 +19,6 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 from torch.nn import Conv2d
 from torch.nn import MSELoss
-from torch.nn import CosineSimilarity
 
 from math import sqrt
 
@@ -37,8 +36,6 @@ from config import DATA_CONFIG
 
 set_float32_matmul_precision('high')
 
-MSI2SLSTRLoss = msi2slstr_loss(a=3)
-SSIM = ssim(c=3)
 DEEPLOSS = DeepLoss([512], [13],
                     loss_fn=MSELoss(reduction="none"),
                     maximize=False)

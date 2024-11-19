@@ -488,7 +488,7 @@ class msi2slstr_debug(msi2slstr):
 
 
 class msi2slstr_predict(msi2slstr):
-    def __init__(self, lr: float = 0.001, size: int = 100,
+    def __init__(self, lr: float = 0.001, size: int = 500,
                  *args: Any, **kwargs: Any) -> None:
         super().__init__(lr, size, *args, **kwargs)
 

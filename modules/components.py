@@ -82,13 +82,13 @@ class ReScale2D(nn.Module):
         """
         Linearly project `x` to the radiometric scale of `y`;
         """
-        scaled = (x *
-                  ref.std((-1, -2), keepdim=True) /
-                  x.std((-1, -2), keepdim=True).add(1e-5))
-        return (scaled -
-                scaled.mean((-1, -2), keepdim=True) +
-                ref.mean((-1, -2), keepdim=True))
+        scaled = self.scale_to_one(x)
+        return scaled.mul(ref.abs().amax((-1, -2), keepdim=True))
     
+    def scale_to_one(self, x: Tensor):
+        offset = x.sub(x.amin((-1, -2), keepdim=True))
+        return offset.div(offset.amax((-1, -2), keepdim=True) + 1e-5)
+
     def __call__(self, x: Tensor, ref: Tensor, *args: Any, **kwds: Any) -> Any:
         return super().__call__(x, ref, *args, **kwds)
 

@@ -311,27 +311,28 @@ class msi2slstr_pretraining(msi2slstr):
         self.therm = thermal_prediction.load_from_checkpoint(
             "pretrained/thermal.ckpt").module
 
+        self.loss = ssim(a=1, b=1, c=1)
+        self.m2s = msi2slstr_loss()
+
     def training_step(self, batch, batch_idx) -> Tensor | Mapping[str, Any]:
         (x, y), _ = batch
 
-        for i in range(13):
-            x[:, [i]].normal_(self.xnorm.mean.squeeze()[i].item(),
-                              self.xnorm.var.squeeze()[i].sqrt().item())
+        x = x.normal_(0, 1).mul(self.xnorm.var).add(self.xnorm.mean)
 
-        x.normal_()
         Y_hat = self(x, y)
 
         self._extra_out['y'] = y
         self._extra_out['Y_hat'] = Y_hat
 
         # Main loss.
-        loss = SSIM(MSI2SLSTRLoss._usample(y), Y_hat)
-        loss2 = SSIM.s(concat([x[:, [2,3,8,10,11,12]],
-                               self._extra_out["thermal_x"]], dim=1),
-                               Y_hat)
+        loss = self.loss(self.m2s._usample(y), Y_hat)
+        loss2 = self.loss.s(concat([x[:, [2,3,8,10,11,12]],
+                            self._extra_out["thermal_x"]], dim=1),
+                            Y_hat)
+        flatness = - self.loss.s(self.m2s._usample(y), Y_hat).mean()
 
         # For the OptToThermal optimization.
-        thermal = SSIM(y[:, 6:], self._extra_out['thermal_y']).mean(0)
+        thermal = self.loss(y[:, 6:], self._extra_out['thermal_y']).mean(0)
 
         # Channelwise evaluation.
         bands_loss = loss.mean(0)
@@ -356,7 +357,8 @@ class msi2slstr_pretraining(msi2slstr):
         deep_loss = DEEPLOSS(self._extra_out['deep512'],
                              y=y).mean()
 
-        return batch_loss + deep_loss + thermal.mean() + loss2.mean()
+        return sum([batch_loss, deep_loss, thermal.mean(), loss2.mean(),
+                    flatness])
 
     def on_train_epoch_end(self) -> None:
         tboard: SummaryWriter = self.logger.experiment

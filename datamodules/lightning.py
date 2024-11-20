@@ -47,9 +47,9 @@ class msi2slstr_datamodule(LightningDataModule):
     
     def predict_dataloader(self) -> DataLoader:
         return DataLoader(predictor_dataset(self.hparams.datadir),
-                          batch_size=self.hparams.batch_size,
+                          batch_size=1,
                           pin_memory=True,
-                          num_workers=4)
+                          num_workers=2)
     
     def on_exception(self, exception: BaseException) -> None:
         return super().on_exception(exception)

@@ -66,7 +66,8 @@ class msi2slstr(LightningModule):
         self.head = Head(64, 12)
         self._initialize_weights()
 
-        self.loss = msi2slstr_loss(a=1, b=1, c=1)
+        self.loss = msi2slstr_loss(a=2, b=1, c=1)
+        self.strict_loading = True
 
     def _initialize_weights(self):
         for _, m in self.named_modules():

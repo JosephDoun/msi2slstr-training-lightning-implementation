@@ -41,6 +41,7 @@ class ssim(Module):
     def l(self, x: Tensor, y: Tensor) -> Tensor:
         return self._similarity(x.mean(self.dims, keepdim=True),
                                 y.mean(self.dims, keepdim=True))\
+                                .clamp(0)\
                                 .pow(self._a)
 
     def c(self, x: Tensor, y: Tensor) -> Tensor:

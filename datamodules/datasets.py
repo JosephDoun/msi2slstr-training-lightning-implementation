@@ -240,7 +240,7 @@ class sen2dataset(msi2slstr_dataset):
 
 class predictor_dataset(msi2slstr_dataset):
     def __init__(self, dirname: str, *args, **kwargs):
-        super().__init__(dirname, *args, **kwargs)
+        super().__init__(dirname, t_size=(500, 10), *args, **kwargs)
         self.output = FusionImage(self.sources[0].sen3source.imagepath,
                                   self.sources[0].sen2source.t_size)
 

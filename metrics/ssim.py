@@ -81,12 +81,4 @@ class ssim(Module):
         Averaged structural similarity loss with a range of values of
         [-1, 1] for maximization.
         """
-        return stack([self.l(x, y), self.c(x, y), self.s(x, y)]).mean(0)
-
-    def evaluate(self, x: Tensor, y: Tensor) -> Tensor:
-        """
-        Multiplied criterion for verification.
-        """
-        x = x.detach()
-        y = y.detach()
         return stack([self.l(x, y), self.c(x, y), self.s(x, y)]).prod(0)

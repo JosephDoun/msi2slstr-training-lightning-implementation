@@ -3,18 +3,22 @@ sys.path.append(".")
     
 import torch
 
-from modules.lightning import msi2slstr
+from modules.lightning import msi2slstr_predict
 
 
 def export(args: list[str]):
-    model = [path for path in args if path.endswith(".ckpt")]
+    ckpt = [arg for arg in args if arg.endswith(".ckpt")]
+    ckpt = ckpt[0] if ckpt else None
 
-    m = msi2slstr.load_from_checkpoint(model[0] if model else
-                                       "models/last.ckpt")
+    model = msi2slstr_predict()
+    model._load_from_state_dict(
+        torch.load(ckpt or "models/last.ckpt", weights_only=True),
+        "", {}, True, None, [], []
+    )
 
-    m.to_onnx("exports/msi2slstr.onnx",
-              input_sample=(torch.randn(32, 13, 100, 100),
-                            torch.randn(32, 12, 2, 2)))
+    model.to_onnx("exports/msi2slstr.onnx",
+                  input_sample=(torch.randn(1, 13, 500, 500),
+                                torch.randn(1, 12,  10,  10)))
 
     return 0
 

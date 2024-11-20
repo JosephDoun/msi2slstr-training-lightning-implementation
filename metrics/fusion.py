@@ -1,5 +1,4 @@
 from torch import Tensor
-from torch import stack
 from torch import concat
 
 from transformations.resampling import AvgDownSamplingModule
@@ -42,19 +41,32 @@ class msi2slstr_loss(ssim):
         # Mask out irrelevant pixels using the green band.
         x = self._mask_x(x, y[:, [0]])
 
-        # Not respecting zero pixels of y.
-        # X corr minus Y residuals.
-        structure = self.s(x, Y_hat).mul(
-            1 - self.s(Y_hat, self._usample(y)).clamp(0))
+        # Calculate scene maximum.
+        scenemax = x.amax((-1, -2), keepdim=True)
 
-        signature = self.signature(self._dsample(Y_hat), y)\
-            .clamp(0)\
-            .mean((-1, -2))\
-            .unsqueeze(1)
-        
+        # Scale scene.
+        composition = x.div(scenemax + 1e-5)
+
+        # Calculate scene mean.
+        scenemean = composition.mean((-1, -2), keepdim=True)
+
+        # Offset scene to have mean 1.
+        composition = composition - scenemean + 1
+
+        # Map w/ adjusted mean and relative variance.
+        fusion_map = composition * y.mean((-1, -2), keepdim=True)
+
+        structure = self.s(Y_hat, fusion_map).mul(
+
+            # Explicitly remove plane flatness.            
+            (1 - self.s(Y_hat, self._usample(y)))
+
+            )\
+                .clamp(.0)
+
         thermal = super().forward(thermal_estimate_y, y[:, 6:])
-        
-        thermal = thermal.mul(
+
+        thermal = thermal.add(
             self.signature(thermal_estimate_y, y[:, 6:])
             .clamp(0)
             .mean((-1, -2))
@@ -63,10 +75,12 @@ class msi2slstr_loss(ssim):
 
         # Respecting zero pixels of y but not of x. Not important.
         energy = super().forward(self._dsample(Y_hat), y)
-        return energy.mul(signature).mul(structure), thermal
+        signature = self.signature(self._dsample(Y_hat), y)\
+            .clamp(0)\
+            .mean((-1, -2))\
+            .unsqueeze(1)\
 
-    def evaluate(self, y: Tensor, Y_hat: Tensor) -> Tensor:
-        return super().evaluate(y, AvgDownSamplingModule(Y_hat))
+        return energy.mul(signature).mul(structure), thermal
     
     def __call__(self, x: Tensor, Y_hat: Tensor, y: Tensor,
                  thermal_estimate_y: Tensor,

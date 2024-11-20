@@ -20,14 +20,17 @@ class ValidAverageDownsampling(Module):
 
     def __init__(self, scale: int = 50) -> None:
         self.scale = int(scale)
+    
+    def _reshape(self, _tensor: Tensor):
+        shape = _tensor.shape
+        return _tensor.reshape(shape[0], shape[1],
+                               shape[2] // self.scale,
+                               self.scale,
+                               shape[3] // self.scale,
+                               self.scale).swapaxes(-2, -3)
 
     def forward(self, _tensor: Tensor) -> Tensor:
-        shape = _tensor.shape
-        _tensor = _tensor.reshape(shape[0], shape[1],
-                              shape[2] // self.scale,
-                              self.scale,
-                              shape[3] // self.scale,
-                              self.scale).swapaxes(-2, -3)
+        _tensor = self._reshape(_tensor)
         _sum = _tensor.sum((-1, -2))
         nzerocount = _tensor.gt(0).sum((-1, -2))
         return _sum.div(nzerocount.add(1e-10))

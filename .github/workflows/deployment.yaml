@@ -7,7 +7,9 @@ on:
       - 'exports/msi2slstr.onnx'
   workflow_dispatch:
 jobs:
-  model-deployment: 
+  model-deployment:
+      permissions:
+        contents: write
       runs-on: ubuntu-latest
       environment: production
       steps:
@@ -23,12 +25,13 @@ jobs:
         run: cp $SOURCE $DESTINATION
         env:
           SOURCE: exports/msi2slstr.onnx
-          DESTINATION: msi2slstr/src/msi2slstr/resourecs/model.onnx
+          DESTINATION: msi2slstr/src/msi2slstr/resources/model.onnx
       - name: Push to msi2slstr repo.
         run: |
           cd msi2slstr;
-          git checkout -b $BRANCH
-          git config.user msi2slstr-training-environment
+          git pull
+          git checkout $BRANCH || git checkout -b $BRANCH
+          git config user.name msi2slstr-training-environment
           git commit -am 'feat: model release'
           git push --set-upstream origin $BRANCH
         #   git request-pull HEAD~1 origin

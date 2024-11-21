@@ -1,0 +1,36 @@
+name: Deploy model to msi2slstr package.
+on: 
+  push:
+    branches: 
+      - main
+    paths:
+      - 'exports/msi2slstr.onnx'
+  workflow_dispatch:
+jobs:
+  model-deployment: 
+      runs-on: ubuntu-latest
+      environment: production
+      steps:
+      - name: Check out repo.
+        uses: actions/checkout@v4
+      - name: Check out msi2slstr project.
+        uses: actions/checkout@v4
+        with:
+          repository: josephdoun/msi2slstr
+          path: ./msi2slstr
+          token: ${{ secrets.model_deployment_token }}
+      - name: Copy model export to deployment repo.
+        run: cp $SOURCE $DESTINATION
+        env:
+          SOURCE: exports/msi2slstr.onnx
+          DESTINATION: msi2slstr/src/msi2slstr/resourecs/model.onnx
+      - name: Push to msi2slstr repo.
+        run: |
+          cd msi2slstr;
+          git checkout -b $BRANCH
+          git config.user msi2slstr-training-environment
+          git commit -am 'feat: model release'
+          git push --set-upstream origin $BRANCH
+        #   git request-pull HEAD~1 origin
+        env:
+          BRANCH: model-release

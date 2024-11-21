@@ -6,10 +6,10 @@ on:
     paths:
       - 'exports/msi2slstr.onnx'
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   model-deployment:
-      permissions:
-        contents: write
       runs-on: ubuntu-latest
       environment: production
       steps:
@@ -30,10 +30,16 @@ jobs:
         run: |
           cd msi2slstr;
           git pull
+          git stash
           git checkout $BRANCH || git checkout -b $BRANCH
-          git config user.name msi2slstr-training-environment
+          git stash pop
+          git config user.name $NAME
+          git config user.email $EMAIL
           git commit -am 'feat: model release'
           git push --set-upstream origin $BRANCH
         #   git request-pull HEAD~1 origin
         env:
           BRANCH: model-release
+          NAME: msi2slstr-training-environment
+          EMAIL: github-actions@github.com
+        #   GH_TOKEN: ${{ secrets.model_deployment_token }}

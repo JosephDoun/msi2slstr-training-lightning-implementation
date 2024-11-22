@@ -59,7 +59,7 @@ class ssim(Module):
             .mul(# normalized y.
                  y.sub(y.mean(self.dims, keepdim=True)))
             .sum(self.dims, keepdim=True).div(
-                Tensor([x.size(d) for d in self.dims]).prod()
+                Tensor([x.size(d) for d in self.dims]).prod() - 1
                 )
             # Term necessary only when both tensors are 0.
             .add(self.C * .5 *

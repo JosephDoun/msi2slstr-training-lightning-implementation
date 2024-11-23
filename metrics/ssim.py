@@ -63,7 +63,7 @@ class ssim(Module):
                 )
             # Term necessary only when both tensors are 0.
             .add(self.C * .5 *
-                 
+
                  # Remove constant if any std non-zero.
                  ((~xstd.any(dim=self.dims, keepdim=True)) &
                   (~ystd.any(dim=self.dims, keepdim=True))))

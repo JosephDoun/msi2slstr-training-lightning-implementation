@@ -1,7 +1,11 @@
+"""
+Dataset module definitions for experiment concept 1.
+"""
 from lightning import LightningDataModule
 
 from torch.utils.data import random_split
 from torch.utils.data import DataLoader
+
 from torch import Generator
 
 from .datasets import msi2slstr_dataset
@@ -10,9 +14,6 @@ from .datasets import predictor_dataset
 
 
 class msi2slstr_datamodule(LightningDataModule):
-    """
-    Data module for the msi2slstr project.
-    """
     def __init__(self, batch_size: int = 32, datadir: str = 'data',
                  num_workers: int = 4) -> None:
         super().__init__()

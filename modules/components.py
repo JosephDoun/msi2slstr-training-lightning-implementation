@@ -163,7 +163,7 @@ class FusionStem(nn.Module):
     def __init__(self, _in: int, _out: int, fuse_in: int, size: int,
                  *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.proj_y = ProjectionY(fuse_in, _in, size)
+        self.proj_y = ScaledProjection(fuse_in, _in, size)
         self.module = nn.Sequential(
             nn.BatchNorm2d(_in * 2, momentum=CONFIG['BATCHNORM_MOMENT']),
             nn.Conv2d(_in * 2, _out, kernel_size=3, padding=1, groups=2,

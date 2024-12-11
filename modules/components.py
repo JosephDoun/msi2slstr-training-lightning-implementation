@@ -164,7 +164,7 @@ class FusionStem(nn.Module):
         return self.module(x).add(self.residual(x))
 
 
-class ProjectionY(nn.Module):
+class ScaledProjection(nn.Module):
     def __init__(self, _in: int, _out: int, size: int, scale: int = 25,
                  *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)

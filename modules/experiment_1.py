@@ -1,3 +1,14 @@
+"""
+Experiment 1:
+
+Describe the desired fusion result through the definition of a fusion loss
+function:
+
+Concept:
+a. SSIM loss for the downsampled output
+b. Correlation with the high resolution input at full scale.
+"""
+
 from lightning import LightningModule
 from torch.optim.optimizer import Optimizer
 
@@ -18,12 +29,13 @@ from torch.utils.tensorboard.writer import SummaryWriter
 from torch.optim import Adam
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 from torch.nn import Conv2d
+from torch.nn import AvgPool2d
 from torch.nn import MSELoss
 
 from math import sqrt
 
 from .components import StaticNorm2D
-from .components import Stem
+from .components import FusionStem
 from .components import DownsamplingBlock
 from .components import Bridge
 from .components import UpsamplingBlock
@@ -43,17 +55,40 @@ DEEPLOSS = DeepLoss([512], [13],
 from torch.nn.utils import clip_grad_norm_
 
 
+class msi2slstr_deployment(LightningModule):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        size = 100
+        self.xnorm = StaticNorm2D("sen2")
+        self.ynorm = StaticNorm2D("sen3")
+        self.stem = FusionStem(13, 32, 12, size)
+        self.rescale = ReScale2D()
+        self.therm = OpticalToThermal(6, 6)
+        self.down_a = DownsamplingBlock( 32,  64)
+        self.down_b = DownsamplingBlock( 64, 128)
+        self.down_c = DownsamplingBlock(128, 256)
+        self.bridge = Bridge(256, 512) # 13x13
+        self.up_c = UpsamplingBlock(512, 256, size // 4)
+        self.up_b = UpsamplingBlock(256, 128, size // 2)
+        self.up_a = UpsamplingBlock(128,  64, size)
+        self.head = Head(64, 12)
+
+    def forward(self):
+        ...
+
+
 class msi2slstr(LightningModule):
 
     def __init__(self, lr: float = 1e-3, size: int = 100,
                  *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        assert not size % 50, "Size not multiple of 50."
+        assert not (size % 50), "Size not multiple of 50."
         self.save_hyperparameters()
         self._extra_out = {}
         self.xnorm = StaticNorm2D("sen2")
         self.ynorm = StaticNorm2D("sen3")
-        self.stem = Stem(13, 32, 12, size)
+        self.avg3x3 = AvgPool2d(3, 1, 1, count_include_pad=False)
+        self.stem = FusionStem(13, 32, 12, size)
         self.rescale = ReScale2D()
         self.therm = OpticalToThermal(6, 6)
         self.down_a = DownsamplingBlock( 32,  64)
@@ -93,6 +128,8 @@ class msi2slstr(LightningModule):
         # This serves only as target.
         # Eval not necessary as stats guaranteed to be same.
         with no_grad():
+            # Average input for improved output.
+            optic_x = self.avg3x3(optic_x)
             self._extra_out['thermal_x'] = self.ynorm.denorm(
                 self.therm(optic_x).detach(), channels=slice(6, 13, 1))
 

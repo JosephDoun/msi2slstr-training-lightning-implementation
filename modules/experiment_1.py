@@ -73,9 +73,9 @@ class msi2slstr(LightningModule):
         self.down_b = DownsamplingBlock( 64, 128, groups=2)
         self.down_c = DownsamplingBlock(128, 256, groups=2)
         self.bridge = Bridge(256, 512) # 13x13
-        self.up_c = UpsamplingBlock(512, 256, size // 4)
-        self.up_b = UpsamplingBlock(256, 128, size // 2)
-        self.up_a = UpsamplingBlock(128,  64, size)
+        self.up_c = FusionUpsamplingBlock(512, 256, size // 4)
+        self.up_b = FusionUpsamplingBlock(256, 128, size // 2)
+        self.up_a = FusionUpsamplingBlock(128,  64, size)
         self.head = Head(64, 12)
         self._initialize_weights()
 

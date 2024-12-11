@@ -112,9 +112,9 @@ class FusionUpsamplingBlock(nn.Module):
                  *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.up = nn.UpsamplingNearest2d((size, size))
-        self.aspp = ASPP(_out // 2, _in, 1, 3, 6)
-        self.concat = CrossGatedConcat(_in, _out, _in)
-        self.module = DualConv(_in + _in, _out, stride=1)
+        self.aspp = ASPP(_out // 2, _out // 2, 1, 3, 6)
+        self.concat = CrossGatedConcat(_in, _out, _out // 2)
+        self.module = DualConv(_in + _out // 2, _out, stride=1)
 
     def forward(self, x, connection):
         x = self.up(x)

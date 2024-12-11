@@ -1,7 +1,7 @@
 import sys
 sys.path.append(".")
 
-from datamodules.stats import Average
+from datamodules.utils import Average
 from tqdm import tqdm
 
 

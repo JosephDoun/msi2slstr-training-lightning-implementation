@@ -3,7 +3,7 @@ sys.path.append(".")
     
 import torch
 
-from modules.lightning import msi2slstr_predict
+from modules.experiment_1 import msi2slstr_predict
 
 
 def export(args: list[str]):

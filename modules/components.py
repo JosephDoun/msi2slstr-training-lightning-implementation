@@ -14,7 +14,7 @@ from typing import Any
 
 class StaticNorm2D(nn.Module):
     """
-    Class providing the denorm method, reversing BatchNorm2D.
+    Statically scales input data according to internal state values.
 
     :param key: Dictionary key for stats loading, either "sen3" or "sen2".
     :type key: str

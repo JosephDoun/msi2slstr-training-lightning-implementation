@@ -142,7 +142,7 @@ class Bridge(nn.Module):
         return self.module(x).add(self.residual(x))
 
 
-class Stem(nn.Module):
+class FusionStem(nn.Module):
     def __init__(self, _in: int, _out: int, fuse_in: int, size: int,
                  *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)

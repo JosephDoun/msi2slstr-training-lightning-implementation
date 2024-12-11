@@ -38,7 +38,7 @@ from .components import StaticNorm2D
 from .components import FusionStem
 from .components import DownsamplingBlock
 from .components import Bridge
-from .components import UpsamplingBlock
+from .components import FusionUpsamplingBlock
 from .components import Head
 from .components import OpticalToThermal
 from .components import ReScale2D
@@ -507,3 +507,6 @@ class msi2slstr_predict(msi2slstr):
 
     def predict_step(self, batch, batch_idx) -> None:
         return super().predict_step(batch, batch_idx)
+    
+    def forward(self, *args, **kwargs):
+        return super().forward(*args, **kwargs)

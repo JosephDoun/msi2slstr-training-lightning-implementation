@@ -69,9 +69,9 @@ class msi2slstr(LightningModule):
         self.stem = FusionStem(13, 32, 12, size)
         self.rescale = ReScale2D()
         self.therm = OpticalToThermal(6, 6)
-        self.down_a = DownsamplingBlock( 32,  64)
-        self.down_b = DownsamplingBlock( 64, 128)
-        self.down_c = DownsamplingBlock(128, 256)
+        self.down_a = DownsamplingBlock( 32,  64, groups=2)
+        self.down_b = DownsamplingBlock( 64, 128, groups=2)
+        self.down_c = DownsamplingBlock(128, 256, groups=2)
         self.bridge = Bridge(256, 512) # 13x13
         self.up_c = UpsamplingBlock(512, 256, size // 4)
         self.up_b = UpsamplingBlock(256, 128, size // 2)

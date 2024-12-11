@@ -108,10 +108,14 @@ class UpsamplingBlock(nn.Module):
 
 
 class DownsamplingBlock(nn.Module):
-    def __init__(self, _in: int, _out: int, *args, **kwargs) -> None:
+    """
+    Residual downsampling block.
+    """
+    def __init__(self, _in: int, _out: int, groups: int = 1,
+                 *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.residual = ResidualProj(_in, _out, stride=2, groups=2)
-        self.module = DualConv(_in, _out, stride=2, padding=1, groups=2)
+        self.residual = ResidualProj(_in, _out, stride=2, groups=groups)
+        self.module = DualConv(_in, _out, stride=2, padding=1, groups=groups)
 
     def forward(self, x):
         return self.module(x).add(self.residual(x))

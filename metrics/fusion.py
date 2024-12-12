@@ -52,7 +52,7 @@ class msi2slstr_loss(ssim):
         # Map w/ adjusted mean and accordingly scaled variance.
         # Scale each channel to have the mean of y.
         # Can also try pixel (y) based mean adjustment. TODO.
-        topology = topology * self._usample(y) # .mean((-1, -2), keepdim=True)
+        topology = topology * y.mean((-1, -2), keepdim=True)
 
         # Balance between high-res correlation
         # and low-res decorrelation conditions.

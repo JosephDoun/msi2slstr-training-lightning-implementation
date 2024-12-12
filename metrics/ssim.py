@@ -82,3 +82,17 @@ class ssim(Module):
         [-1, 1] for maximization.
         """
         return stack([self.l(x, y), self.c(x, y), self.s(x, y)]).prod(0)
+
+
+class cubic_ssim(ssim):
+    """
+    Includes the channel axis in the structural similarity measurement.
+    """
+    def __init__(self, dims: tuple = (-1, -2), *,
+                 a: float = 1, b: float = 1, c: float = 1) -> None:
+        super().__init__(dims, a=a, b=b, c=c)
+        self.channel = self.ssim((-3,))
+
+    def forward(self, x: Tensor, y: Tensor) -> Tensor:
+        channel_wise = self.channel(x, y)
+        return super().forward(x, y).mul(channel_wise)

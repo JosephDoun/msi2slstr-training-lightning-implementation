@@ -337,10 +337,9 @@ class msi2slstr_pretraining(msi2slstr):
 
         # Main loss.
         loss = self.loss(self.m2s._usample(y), Y_hat)
-        loss2 = self.loss.s(concat([x[:, [2,3,8,10,11,12]],
+        topo = self.loss.s(concat([x[:, [2, 3, 8, 10, 11, 12]],
                             self._extra_out["thermal_x"]], dim=1),
                             Y_hat)
-        flatness = - self.loss.s(self.m2s._usample(y), Y_hat).mean()
 
         # For the OptToThermal optimization.
         thermal = self.loss(y[:, 6:], self._extra_out['thermal_y']).mean(0)
@@ -368,8 +367,7 @@ class msi2slstr_pretraining(msi2slstr):
         deep_loss = DEEPLOSS(self._extra_out['deep512'],
                              y=y).mean()
 
-        return sum([batch_loss, deep_loss, thermal.mean(), loss2.mean(),
-                    flatness])
+        return sum([batch_loss, deep_loss, thermal.mean(), topo.mean()])
 
     def on_train_epoch_end(self) -> None:
         tboard: SummaryWriter = self.logger.experiment

@@ -65,9 +65,9 @@ class msi2slstr(LightningModule):
         self._extra_out = {}
         self.xnorm = StaticNorm2D("sen2")
         self.ynorm = StaticNorm2D("sen3")
-        self.avg3x3 = AvgPool2d(3, 1, 1, count_include_pad=False)
+        self.gauss = AvgPool2d(3, 1, 1, count_include_pad=False)
         self.stem = FusionStem(13, 32, 12, size)
-        self.rescale = ReScale2D()
+        self.match = ReScale2D()
         self.therm = OpticalToThermal(6, 6)
         self.down_a = DownsamplingBlock( 32,  64, groups=2)
         self.down_b = DownsamplingBlock( 64, 128, groups=2)
@@ -89,16 +89,14 @@ class msi2slstr(LightningModule):
                 if m.bias is not None:
                     m.bias.data.fill_(.0)
 
-    def forward(self, x, y) -> Tensor:
-        x = self.xnorm(x)
-        y = self.ynorm(y)
-        a = self.stem(x, y)
-
+    def _thermal_training(self, x: Tensor, y: Tensor):
+        """
+        Train the thermal module and produce the high res thermal template.
+        """
         optic_y = y[:, [0, 1, 2, 3, 4, 5]]
 
         # x scaled to value range of y.
-        optic_x = self.rescale(x=x[:, DATA_CONFIG['sen2_bands']],
-                               ref=optic_y)
+        optic_x = self.match(x=x[:, DATA_CONFIG['sen2_bands']], ref=optic_y)
 
         self._extra_out['thermal_y'] = self.ynorm.denorm(
             self.therm(optic_y), channels=slice(6, 13, 1))
@@ -107,9 +105,16 @@ class msi2slstr(LightningModule):
         # Eval not necessary as stats guaranteed to be same.
         with no_grad():
             # Average input for improved output.
-            optic_x = self.avg3x3(optic_x)
+            optic_x = self.gauss(optic_x)
             self._extra_out['thermal_x'] = self.ynorm.denorm(
                 self.therm(optic_x).detach(), channels=slice(6, 13, 1))
+
+    def forward(self, x, y) -> Tensor:
+        x = self.xnorm(x)
+        y = self.ynorm(y)
+        a = self.stem(x, y)
+
+        self._thermal_training(x, y)
 
         b = self.down_a(a)
         # self._extra_out['deep64'] = b

@@ -1,6 +1,9 @@
 from lightning.pytorch.cli import LightningCLI
-from datamodules.experiment_1 import msi2slstr_datamodule # noqa: F401
-from modules.experiment_1 import msi2slstr # noqa: F401
+# Register all experiments via dot imports.
+import datamodules.experiment_1
+import datamodules.experiment_2
+import modules.experiment_1
+import modules.experiment_2
 
 import sys
 

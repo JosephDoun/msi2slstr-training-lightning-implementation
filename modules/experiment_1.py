@@ -46,8 +46,6 @@ from .components import ReScale2D
 from config import DATA_CONFIG
 
 
-set_float32_matmul_precision('high')
-
 DEEPLOSS = DeepLoss([512], [13],
                     loss_fn=MSELoss(reduction="none"),
                     maximize=False)

@@ -7,6 +7,10 @@ import modules.experiment_2
 
 import sys
 
+from torch import set_float32_matmul_precision
+
+set_float32_matmul_precision('high')
+
 
 def main():
     LightningCLI()

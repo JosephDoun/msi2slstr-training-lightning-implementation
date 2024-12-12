@@ -41,21 +41,17 @@ class StaticNorm2D(nn.Module):
 class OpticalToThermal(nn.Module):
     def __init__(self, _in: int, _out: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.encoder = nn.Sequential(
+        self.module = nn.Sequential(
             nn.BatchNorm2d(_in, momentum=1e-1),
             nn.Conv2d(_in, _in * 2, 1),
-            DualConv(_in * 2, _in * 4, padding=0, kernel_size=1),
-            )
-        
-        self.decoder = nn.Sequential(
+            DualConv(_in * 2, _in * 4, kernel_size=1, padding=0),
             DualConv(_in * 4, _in * 2, kernel_size=1, padding=0),
             nn.Conv2d(_in * 2, _out, 1),
             nn.BatchNorm2d(_out, momentum=1e-1),
         )
 
     def forward(self, x: Tensor):
-        x = self.encoder(x)
-        return self.decoder(x)
+        return self.module(x)
 
 
 class SNE(nn.Module):

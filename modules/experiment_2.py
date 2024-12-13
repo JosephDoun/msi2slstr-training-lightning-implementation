@@ -125,7 +125,7 @@ class training(LightningModule):
     def forward(self, x: Tensor, y: Tensor) -> Any:
         x = self.xnorm(x)
         y = self.ynorm(y)
-        a = self.stem(x, y)
+        a = self.stem(x)
         b = self.down_a(a)
         # self._extra_out['a32'] = b
         c = self.down_b(b)

@@ -309,6 +309,7 @@ class msi2slstr(LightningModule):
         # Write to output: A writer class should be available to receive the
         # inference product.
         self.trainer.predict_dataloaders.dataset.output(indices, Y_hat)
+        return 0
 
     def configure_optimizers(self):
         opt = Adam(self.parameters(), lr=self.hparams.lr, maximize=True,

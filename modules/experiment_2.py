@@ -99,31 +99,33 @@ class training(LightningModule):
 
     def _thermal_training(self, x: Tensor, y: Tensor):
         """
-        Train the thermal module and produce the high res thermal template.
+        Produce the thermal module's target estimate.
         """
         optic_y = y[:, [0, 1, 2, 3, 4, 5]]
-
-        # x scaled to value range of y.
-        optic_x = self.match(x=x[:, DATA_CONFIG['sen2_bands']], ref=optic_y)
-
-        self._extra_out['thermal_y'] = self.ynorm.denorm(
+        return self.ynorm.denorm(
             self.therm(optic_y), channels=slice(6, 13, 1))
 
+
+    def _thermal_predict(self, x: Tensor, y: Tensor):
+        """
+        Produce the thermal map estimation of high res x image.
+        """
+        optic_y = y[:, [0, 1, 2, 3, 4, 5]]
+        # x scaled to value range of y.
+        optic_x = self.match(x=x[:, DATA_CONFIG['sen2_bands']], ref=optic_y)
         # This serves only as target.
         # Eval not necessary as stats guaranteed to be same.
         with no_grad():
-            # Average input for improved output.
+            # Average input for improved output quality.
             optic_x = self.gauss(optic_x)
-            self._extra_out['thermal_x'] = self.ynorm.denorm(
-                self.therm(optic_x).detach(), channels=slice(6, 13, 1))
-
+            thermal = self.ynorm.denorm(self.therm(optic_x).detach(),
+                                     channels=slice(6, 13, 1))
+        return thermal
 
     def forward(self, x: Tensor, y: Tensor) -> Any:
         x = self.xnorm(x)
         y = self.ynorm(y)
         a = self.stem(x, y)
-        # Thermal extrapolation helper.
-        self._thermal_training(x, y)
         b = self.down_a(a)
         # self._extra_out['a32'] = b
         c = self.down_b(b)
@@ -140,20 +142,11 @@ class training(LightningModule):
         x = self.head(x)
         return self.ynorm.denorm(x)
 
-    def _log_experiment_metrics(self, *args, **kwargs):
-        ...
-
     def on_train_epoch_end(self) -> None:
         tboard: SummaryWriter = self.logger.experiment
 
         tboard.add_images(tag="training/x/train",
                           img_tensor=channel_stretch(self._extra_out['x'][1])
-                                                     .unsqueeze(1),
-                          global_step=self.current_epoch,
-                          dataformats='NCHW')
-
-        tboard.add_images(tag="training/y/train",
-                          img_tensor=channel_stretch(self._extra_out['y'][1])
                                                      .unsqueeze(1),
                           global_step=self.current_epoch,
                           dataformats='NCHW')
@@ -175,11 +168,14 @@ class training(LightningModule):
         """
         Generalized random training for radiometric recovery.
         """
-        data, metadata = batch
-        dates, tiles = metadata
-        x, y = data
-        x_flat = x * randn((x.size(0), x.size(1), 1, 1))
-        Y_hat, loss = self._schemes[batch_idx % 3](x_flat, y)
+        # Thermal extrapolation helper.
+        # Train the module on size 100x100 Y.
+        # Should we produce the X prediction anyway?
+        x, y = batch
+        thermal_y = self._thermal_training(x, y)
+        thermal_loss = self._loss(thermal_y, y[:, 6:])
+        # Roll over training workflows.
+        loss = self._schemes[batch_idx % len(self._schemes)](batch, batch_idx)
         return loss
     
     def validation_step(self, batch, batch_idx) -> Tensor:

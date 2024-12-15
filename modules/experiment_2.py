@@ -12,7 +12,6 @@ c. Substitute input with high resolution but maintain multi-level injections.
 from typing import Any
 from lightning import LightningModule
 
-from torch import set_float32_matmul_precision
 from torch import no_grad
 
 from torch.nn import Conv2d
@@ -21,24 +20,32 @@ from torch.nn import AvgPool2d
 from torch.optim import Adam
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 from torch.utils.tensorboard.writer import SummaryWriter
+from torch.utils.data import DataLoader
 
-from torch import sqrt
+from math import sqrt
+
+from torch import rand
 from torch import randn
+from torch import zeros
 from torch import Tensor
 
 from .components import OpticalToThermal
+from .components import StaticNorm2D
 from .components import Stem
 from .components import ReScale2D
-from .components import ScaledProjection
+from .components import ChannelExpansion
+from .components import ChannelCollapse
 from .components import DownsamplingBlock
 from .components import Bridge
 from .components import UpsamplingBlock
 from .components import Head
 
+from .experiment_1 import thermal_prediction
+
 from config import DATA_CONFIG
 from metrics.ssim import cubic_ssim
 from transformations.normalization import channel_stretch
-from transformations.resampling import NonStrictAvgDownSamplingModule
+from transformations.resampling import NonStrictAvgDownSamplingModule as Down
 
 
 class training(LightningModule):
@@ -102,9 +109,8 @@ class training(LightningModule):
         Produce the thermal module's target estimate.
         """
         optic_y = y[:, [0, 1, 2, 3, 4, 5]]
-        return self.ynorm.denorm(
-            self.therm(optic_y), channels=slice(6, 13, 1))
-
+        return self.ynorm.denorm(self._therm(optic_y),
+                                 channels=slice(6, 13, 1))
 
     def _thermal_predict(self, x: Tensor, y: Tensor):
         """
@@ -117,9 +123,9 @@ class training(LightningModule):
         # Eval not necessary as stats guaranteed to be same.
         with no_grad():
             # Average input for improved output quality.
-            optic_x = self.gauss(optic_x)
-            thermal = self.ynorm.denorm(self.therm(optic_x).detach(),
-                                     channels=slice(6, 13, 1))
+            optic_x = self._gauss(optic_x)
+            thermal = self.ynorm.denorm(self._therm(optic_x).detach(),
+                                        channels=slice(6, 13, 1))
         return thermal
 
     def forward(self, x: Tensor, y: Tensor) -> Any:

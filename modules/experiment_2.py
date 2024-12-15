@@ -99,10 +99,8 @@ class radiometric_reconstruction_module(LightningModule):
         return x.mul(scale).add(offset)
 
     def get_training_input(self, batch, index):
-        if index % 2:
-            return self.xnorm(batch[0])[:, 1:]
-        else:
-            return self.ynorm(batch[1])
+            return self.xnorm(batch[0])[:, 1:] if rand(1) > .5 else\
+                  self.ynorm(batch[1])
 
     def _training_scheme_1(self, batch, batch_idx):
         """

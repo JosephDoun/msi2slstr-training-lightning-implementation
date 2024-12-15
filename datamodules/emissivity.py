@@ -6,6 +6,10 @@ from torch import Generator
 
 
 class emissivity_datamodule(msi2slstr_datamodule):
+    """
+    Use Sentinel-3 images in combination with corregistered Sentinel-2
+    acquisitions for estimating energy emissions measured by the SLSTR sensor.
+    """
     def __init__(self, batch_size: int = 32, datadir: str = 'data',
                  num_workers: int = 4) -> None:
         super().__init__()

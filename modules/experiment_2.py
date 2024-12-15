@@ -86,22 +86,39 @@ class radiometric_reconstruction_module(LightningModule):
                 if m.bias is not None:
                     m.bias.data.fill_(.0)
 
-    def _training_scheme_1(self, x: Tensor, y: Tensor):
+    def _mangle_radiometry(self, x: Tensor):
+        """
+        Randomly and independently scale and offset channel values.
+        """
+        # 0.5, 1.5
+        scale = rand(x.size(0), x.size(1), 1, 1, device=x.get_device())\
+            .mul(1.).add(.5)
+        # +- .5
+        offset = randn(x.size(0), x.size(1), 1, 1, device=x.get_device())\
+            .mul(.5)
+        return x.mul(scale).add(offset)
+
+    def get_training_input(self, batch, index):
+        if index % 2:
+            return self.xnorm(batch[0])[:, 1:]
+        else:
+            return self.ynorm(batch[1])
+
+    def _training_scheme_1(self, batch, batch_idx):
         """
         Reconstruct low res image expected radiometry reinjection in latent
         space.
         """
-        x_flat = x * randn((x.size(0), x.size(1), 1, 1))
-        y = ...
-        return self(x_flat, y)
-
-    def _training_scheme_2(self, x: Tensor, y: Tensor):
-        """
-        Reconstruct high res image with latent injection of radiometry.
-
-        Random channel selection.
-        """
-        return
+        # Input tensor.
+        t_in = self.get_training_input(batch, batch_idx)
+        
+        # Leveled input: Randomly scale input channels
+        # to lose radiometric info.
+        flat_in = self._mangle_radiometry(t_in)
+        
+        # Downsampled input as radiometric information..
+        rad_in = Down(t_in)
+        return t_in, flat_in, rad_in, rad_in
 
     def _training_scheme_3(self, x: Tensor, y: Tensor):
         """

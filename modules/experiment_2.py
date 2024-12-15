@@ -65,14 +65,14 @@ class radiometric_reconstruction_module(LightningModule):
         self.up_a = UpsamplingBlock( 64,  32, size)
         self.head = Head(32, 12)
         self.match = ReScale2D()
-        self.therm = OpticalToThermal(6, 6)
-        self.gauss = AvgPool2d(3, 1, 1, count_include_pad=False)
+        self._therm = thermal_prediction.load_from_checkpoint(
+            "pretrained/thermal.ckpt").module
+        self._gauss = AvgPool2d(3, 1, 1, count_include_pad=False)
 
         self._initialize_weights()
         self._loss = cubic_ssim()
         self._schemes = [self._training_scheme_1,
-                         self._training_scheme_2,
-                         self._training_scheme_3]
+                         self._training_scheme_2]
 
     def _initialize_weights(self):
         for _, m in self.named_modules():

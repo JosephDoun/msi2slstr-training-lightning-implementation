@@ -209,8 +209,49 @@ class radiometric_reconstruction_module(LightningModule):
         thermal_y = self._thermal_training(x, y)
         thermal_loss = self._loss(thermal_y, y[:, 6:]).mean()
         # Roll over training workflows.
-        loss = self._schemes[batch_idx % len(self._schemes)](batch, batch_idx)
-        return loss
+        # Get a) target, b) mangled input, c) radiometry and d) deep target.
+        t_in, flat_in, rad_in, deep_in =\
+        self._schemes[batch_idx % len(self._schemes)](batch, batch_idx)
+
+        # Target prediction.
+        Y_hat = self(flat_in, rad_in)
+        
+        # Estimated loss.
+        loss = self._loss(t_in, Y_hat)
+        
+        # Loss aggregation to build on.
+        batch_loss = loss.mean()
+
+        # For band evaluation.
+        per_band = loss.mean(0)
+
+        self.log("hp_metric", batch_loss)
+        self.log("training/loss/train", batch_loss,
+                 logger=True, prog_bar=True, on_epoch=True,
+                 on_step=True, batch_size=per_band.size(0))
+        self.log_dict({**{f"training/band_{i}/train": v for i, v in
+                          enumerate(per_band)},
+                       },
+                      on_step=True,
+                      on_epoch=True,
+                      prog_bar=False,
+                      logger=True,
+                      batch_size=loss.size(0))
+        
+        # Deep loss should be precisely targeting the false aggregated input.
+        # .
+        deep_loss = self._loss(
+            # Additive collapse of activation to radiometry dimensions.
+            self.c384(self._extra_out['a384']),
+            # Downsampled input.
+            deep_in
+        ).mean()
+
+        self.log("training/loss/deep_supervision", deep_loss,
+                 logger=True, prog_bar=False, on_epoch=True,
+                 on_step=True, batch_size=per_band.size(0))
+
+        return batch_loss.add(deep_loss).add(thermal_loss)
     
     def validation_step(self, batch, batch_idx) -> Tensor:
         """

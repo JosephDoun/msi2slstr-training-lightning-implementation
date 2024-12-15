@@ -108,13 +108,17 @@ class radiometric_reconstruction_module(LightningModule):
         x_t = self._therm(y[:, :6]).detach()
         return concat([x_o, x_t], dim=-3)
 
-    def _training_scheme_1(self, batch, batch_idx):
+    def get_random_training_input(self, batch):
+            return self._build_high_res_input(batch) if rand(1) > .5 else\
+                batch[1]
+
+    def _training_scheme_1(self, batch):
         """
         Reconstruct low res image expected radiometry reinjection in latent
         space.
         """
         # Input tensor.
-        t_in = self.get_training_input(batch, batch_idx)
+        t_in = self.get_random_training_input(batch)
         
         # Leveled input: Randomly scale input channels
         # to lose radiometric info.
@@ -124,7 +128,7 @@ class radiometric_reconstruction_module(LightningModule):
         rad_in = Down(t_in)
         return t_in, flat_in, rad_in, rad_in
 
-    def _training_scheme_2(self, batch, batch_idx):
+    def _training_scheme_2(self, batch):
         """
         The zero case. Reconstruct image when latent injection is zero,
         expecting no effect.
@@ -215,7 +219,7 @@ class radiometric_reconstruction_module(LightningModule):
         # Roll over training workflows.
         # Get a) target, b) mangled input, c) radiometry and d) deep target.
         t_in, flat_in, rad_in, deep_in =\
-        self._schemes[batch_idx % len(self._schemes)](batch, batch_idx)
+        self._schemes[batch_idx % len(self._schemes)](batch)
 
         # Target prediction.
         Y_hat = self(flat_in, rad_in)
@@ -264,7 +268,7 @@ class radiometric_reconstruction_module(LightningModule):
         # Roll over training workflows.
         # Get a) input, b) mangled input, c) radiometry and d) deep target.
         t_in, flat_in, rad_in, _ =\
-        self._schemes[batch_idx % len(self._schemes)](batch, batch_idx)
+        self._schemes[batch_idx % len(self._schemes)](batch)
 
         # Target prediction.
         Y_hat = self(flat_in, rad_in)

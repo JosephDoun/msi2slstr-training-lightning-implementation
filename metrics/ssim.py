@@ -18,9 +18,10 @@ class ssim(Module):
     :param dims: The dimensions to calculate the loss over.
     :type dims: tuple[int]
     """
-    def __init__(self, dims: tuple = (-1, -2), *,
+    def __init__(self, dims: tuple = (-1, -2), *, agg: str = 'prod',
                  a: float = 1., b: float = 1., c: float = 1.) -> None:
         super().__init__()
+        self._agg = agg
         self.dims = dims
         self.C = 1e-3
         self._a = a
@@ -81,18 +82,19 @@ class ssim(Module):
         Averaged structural similarity loss with a range of values of
         [-1, 1] for maximization.
         """
-        return stack([self.l(x, y), self.c(x, y), self.s(x, y)]).prod(0)
+        return getattr(stack([self.l(x, y), self.c(x, y), self.s(x, y)]),
+                       self._agg)(0)
 
 
 class cubic_ssim(ssim):
     """
     Includes the channel axis in the structural similarity measurement.
     """
-    def __init__(self, dims: tuple = (-1, -2), *,
-                 a: float = 1, b: float = 1, c: float = 1) -> None:
-        super().__init__(dims, a=a, b=b, c=c)
-        self.channel = self.ssim((-3,))
+    def __init__(self, *, agg: str = 'prod', a: float = 1,
+                 b: float = 1, c: float = 1) -> None:
+        super().__init__((-1, -2), agg=agg, a=a, b=b, c=c)
+        self._channel_axis = ssim((-3,), agg=agg, a=a, b=b, c=c)
 
     def forward(self, x: Tensor, y: Tensor) -> Tensor:
-        channel_wise = self.channel(x, y)
-        return super().forward(x, y).mul(channel_wise)
+        channel_axis = self._channel_axis(x, y).mean((-1, -2)).unsqueeze(-1)
+        return super().forward(x, y).mul(channel_axis)

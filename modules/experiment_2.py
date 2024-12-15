@@ -48,8 +48,9 @@ from transformations.normalization import channel_stretch
 from transformations.resampling import NonStrictAvgDownSamplingModule as Down
 
 
-class training(LightningModule):
-    def __init__(self, size: int = 100, *args: Any, **kwargs: Any) -> None:
+class radiometric_reconstruction_module(LightningModule):
+    def __init__(self, lr: float = 1e-3, size: int = 100,
+                 *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.save_hyperparameters()
         self._extra_out = {}

@@ -45,7 +45,7 @@ class ReflectedToEmitted(nn.Module):
     of the first 6 bands of a Sentinel-3 RBT product, estimate the thermal
     part of the spectrum.
 
-    NOTE: This module should be refactor to take advantage of the additional
+    NOTE: This module should be refactored to take advantage of the additional
     radiometric information contained in Sentinel-2 MSI measurements.
     """
     def __init__(self, _in: int, _out: int, *args, **kwargs) -> None:

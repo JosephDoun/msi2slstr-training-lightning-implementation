@@ -98,9 +98,15 @@ class radiometric_reconstruction_module(LightningModule):
             .mul(.5)
         return x.mul(scale).add(offset)
 
-    def get_training_input(self, batch, index):
-            return self.xnorm(batch[0])[:, 1:] if rand(1) > .5 else\
-                  self.ynorm(batch[1])
+    def _build_high_res_input(self, batch):
+        """
+        Constructs the expected input for the fusion task of Sentinel-2/3
+        inputs.
+        """
+        x, y = batch
+        x_o = x[:, DATA_CONFIG["sen2_bands"]]
+        x_t = self._therm(y[:, :6]).detach()
+        return concat([x_o, x_t], dim=-3)
 
     def _training_scheme_1(self, batch, batch_idx):
         """

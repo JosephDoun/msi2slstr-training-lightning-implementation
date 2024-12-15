@@ -39,7 +39,15 @@ class StaticNorm2D(nn.Module):
             .add(self.mean[:, channels])
 
 
-class OpticalToThermal(nn.Module):
+class ReflectedToEmitted(nn.Module):
+    """
+    Given the reflective part of the spectrum corresponding to measurements
+    of the first 6 bands of a Sentinel-3 RBT product, estimate the thermal
+    part of the spectrum.
+
+    NOTE: This module should be refactor to take advantage of the additional
+    radiometric information contained in Sentinel-2 MSI measurements.
+    """
     def __init__(self, _in: int, _out: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.module = nn.Sequential(

@@ -203,12 +203,11 @@ class radiometric_reconstruction_module(LightningModule):
         """
         Generalized random training for radiometric recovery.
         """
+        x, y = batch
         # Thermal extrapolation helper.
         # Train the module on size 100x100 Y.
-        # Should we produce the X prediction anyway?
-        x, y = batch
         thermal_y = self._thermal_training(x, y)
-        thermal_loss = self._loss(thermal_y, y[:, 6:])
+        thermal_loss = self._loss(thermal_y, y[:, 6:]).mean()
         # Roll over training workflows.
         loss = self._schemes[batch_idx % len(self._schemes)](batch, batch_idx)
         return loss

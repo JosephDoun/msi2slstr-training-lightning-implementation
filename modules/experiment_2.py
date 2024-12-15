@@ -51,6 +51,7 @@ from transformations.resampling import NonStrictAvgDownSamplingModule as Down
 class training(LightningModule):
     def __init__(self, size: int = 100, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+        self.save_hyperparameters()
         self._extra_out = {}
         self.stem = Stem(12, 16)
         self.down_a = DownsamplingBlock(16,  32)

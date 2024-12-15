@@ -24,7 +24,6 @@ from typing import Any
 from torch import Tensor
 from torch import no_grad
 from torch import concat
-from torch import set_float32_matmul_precision
 from torch.utils.tensorboard.writer import SummaryWriter
 from torch.optim import Adam
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts

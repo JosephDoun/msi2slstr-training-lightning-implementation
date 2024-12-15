@@ -54,16 +54,21 @@ class radiometric_reconstruction_module(LightningModule):
         super().__init__(*args, **kwargs)
         self.save_hyperparameters()
         self._extra_out = {}
-        self.stem = Stem(12, 16)
-        self.down_a = DownsamplingBlock(16,  32)
-        self.down_b = DownsamplingBlock(32,  64)
-        self.down_c = DownsamplingBlock(64, 128)
-        self.proj_a = ScaledProjection(12, 128, size // 4)
-        self.bridge = Bridge(128, 256)
-        self.up_c = UpsamplingBlock(256, 128, size // 4)
-        self.up_b = UpsamplingBlock(128,  64, size // 2)
-        self.up_a = UpsamplingBlock( 64,  32, size)
-        self.head = Head(32, 12)
+        self.xnorm = StaticNorm2D("sen2")
+        self.ynorm = StaticNorm2D("sen3")
+        self.s24 = Stem(12, 24)
+        self.d48 = DownsamplingBlock(24,  48)
+        self.d96 = DownsamplingBlock(48,  96)
+        self.d192 = DownsamplingBlock(96, 192)
+        self.e192 = ChannelExpansion(13, 12, 192)
+        self.b384 = Bridge(192, 384)
+        self.c384 = ChannelCollapse(2, 384, 12)
+        self.u192 = UpsamplingBlock(384, 192, size // 4)
+        self.u96 = UpsamplingBlock(192,  96, size // 2)
+        self.u48 = UpsamplingBlock( 96,  48, size)
+        self.h12 = Head(48, 12)
+
+        # Helper modules for training.
         self.match = ReScale2D()
         self._therm = thermal_prediction.load_from_checkpoint(
             "pretrained/thermal.ckpt").module
@@ -131,24 +136,20 @@ class radiometric_reconstruction_module(LightningModule):
         return thermal
 
     def forward(self, x: Tensor, y: Tensor) -> Any:
-        x = self.xnorm(x)
-        y = self.ynorm(y)
-        a = self.stem(x)
-        b = self.down_a(a)
-        # self._extra_out['a32'] = b
-        c = self.down_b(b)
-        # self._extra_out['a64'] = c
-        x = self.down_c(c)
-        # self._extra_out['a128'] = x
-        x = self.bridge(x + self.proj_a(y))
-        # The bridge activation should
-        # target y directly.
-        self._extra_out['a256'] = x
-        x = self.up_c(x, c)
-        x = self.up_b(x, b)
-        x = self.up_a(x, a)
-        x = self.head(x)
-        return self.ynorm.denorm(x)
+        # x = self.xnorm(x)
+        # y = self.ynorm(y)
+        a = self.s24(x)
+        b = self.d48(a)
+        c = self.d96(b)
+        x = self.d192(c)
+        x = self.b384(x + self.e192(y))
+        # Activation save for deep supervision.
+        self._extra_out['a384'] = x
+        x = self.u192(x, c)
+        x = self.u96(x, b)
+        x = self.u48(x, a)
+        x = self.h12(x)
+        return x # self.ynorm.denorm(x)
 
     def on_train_epoch_end(self) -> None:
         """

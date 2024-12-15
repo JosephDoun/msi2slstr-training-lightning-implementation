@@ -183,24 +183,19 @@ class radiometric_reconstruction_module(LightningModule):
         # Run one extra sample during epoch end.
         loader: DataLoader = self.trainer.train_dataloader
         x, y = loader.dataset[0]
+        x = self.xnorm(x.cuda())[:, 1:]
+        y = Down(x).fill_(0)
         Y_hat = self(x, y)
         
         tboard: SummaryWriter = self.logger.experiment
 
         tboard.add_images(tag="training/x/train",
-                          img_tensor=channel_stretch(x).unsqueeze(1),
-                          global_step=self.current_epoch,
-                          dataformats='NCHW')
-
-        tboard.add_images(tag="training/y/thermal",
-                          img_tensor=channel_stretch(self._extra_out
-                                                     ['thermal_y'])
-                                                     .unsqueeze(1),
+                          img_tensor=channel_stretch(x).swapaxes(0, 1),
                           global_step=self.current_epoch,
                           dataformats='NCHW')
 
         tboard.add_images(tag="training/Y_hat/train",
-                          img_tensor=channel_stretch(Y_hat).unsqueeze(1),
+                          img_tensor=channel_stretch(Y_hat).swapaxes(0, 1),
                           global_step=self.current_epoch,
                           dataformats='NCHW')
 

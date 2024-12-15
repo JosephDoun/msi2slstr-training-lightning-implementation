@@ -7,44 +7,68 @@ from torch.optim import Adam
 from lightning import LightningModule
 
 from transformations.normalization import channel_stretch
+from transformations.resampling import NonStrictAvgDownSamplingModule as Down
 
 from .components import StaticNorm2D
 from .components import ReflectedToEmitted
+from .components import ReScale2D
 
-from metrics import ssim
+from metrics.ssim import cubic_ssim
+from config import DATA_CONFIG
 
 
 class emissivity_module(LightningModule):
+    """
+    Make use of the corregistered Sentinel-2 images
+    for the estimation of emissivity in pixels.
+    """
     def __init__(self, lr=1e-3, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.norm = StaticNorm2D("sen3")
-        self.module = ReflectedToEmitted(6, 6)
+        self.xnorm = StaticNorm2D("sen2")
+        self.ynorm = StaticNorm2D("sen3")
+        self.match = ReScale2D()
+        self.module = ReflectedToEmitted(13, 6)
         self._extra_out = {}
         self.save_hyperparameters()
-
-        self.loss = ssim(a=1, b=.5, c=3)
+        self._loss = cubic_ssim(a=1, b=1, c=1, agg='mean')
 
     def forward(self, x):
-        x = self.norm(x)[:, :6]
-        return self.norm.denorm(self.module(x), slice(6, 13))
+        return self.module(x)
 
     def training_step(self, batch, batch_idx) -> Tensor:
-        Y_hat = self(batch)
-        loss = self.loss(batch[:, 6:], Y_hat)
-        band_loss = loss.mean(0)
+        """
+        Expects corregistered pairs of Sentinel-2 and Sentinel-3 patches.
+        """
+        # Unpack data.
+        data, _ = batch
+        x, y = data
+        x, y = self.xnorm(x), self.ynorm(y)
+
+        # Downscale X to Y dimensions.
+        x = Down(x)
+
+        # Use directly all corregistered Sentinel-2 bands
+        # to estimate thermal emissivity.
+        Y_hat = self(x)
+        
+        # Validate against real thermal emissivity.
+        loss = self._loss(y[:, 6:], Y_hat)
+
+        # Log.
+        per_band = loss.mean(0)
         batch_loss = loss.mean()
 
-        self._extra_out["y"] = batch[batch_loss.mean(-1).argmax()]
+        self._extra_out["y"] = y[batch_loss.mean(-1).argmax()]
         self._extra_out["Y_hat"] = Y_hat[batch_loss.mean(-1).argmax()]
 
-        self.log("hp_metric", batch_loss, batch_size=band_loss.size(0))
-        self.log("opt_to_thermal_experiment/train/loss",
+        self.log("hp_metric", batch_loss, batch_size=loss.size(0))
+        self.log("emissivity/train/loss",
                  batch_loss,
-                 batch_size=batch.size(0),
+                 batch_size=loss.size(0),
                  on_step=True, prog_bar=True)
 
-        self.log_dict({f"opt_to_thermal_experiment/train_{i}": v for i, v in
-                       enumerate(band_loss)}, batch_size=batch.size(0),
+        self.log_dict({f"emissivity/train_{i}": v for i, v in
+                       enumerate(per_band)}, batch_size=loss.size(0),
                        on_step=True)
 
         return batch_loss
@@ -52,46 +76,51 @@ class emissivity_module(LightningModule):
     def on_train_epoch_end(self) -> None:
         tboard: SummaryWriter = self.logger.experiment
 
-        tboard.add_images(tag="opt_to_thermal_experiment/train/y",
+        tboard.add_images(tag="emissivity/train/y",
                           img_tensor=channel_stretch(self._extra_out['y'])
                                                      .unsqueeze(1),
                           global_step=self.current_epoch,
                           dataformats='NCHW')
 
-        tboard.add_images(tag="opt_to_thermal_experiment/train/Y_hat",
+        tboard.add_images(tag="emissivity/train/Y_hat",
                           img_tensor=channel_stretch(self._extra_out['Y_hat'])
                                                      .unsqueeze(1),
                           global_step=self.current_epoch,
                           dataformats='NCHW')
 
     def validation_step(self, batch, batch_idx) -> Tensor:
-        Y_hat = self(batch)
-        loss = self.loss(batch[:, 6:], Y_hat)
-        band_loss = loss.mean(0)
+        """
+        Expects corregistered pairs of Sentinel-2 and Sentinel-3 patches.
+        """
+        # Unpack data.
+        data, _ = batch
+        x, y = data
+        x, y = self.xnorm(x), self.ynorm(y)
+
+        # Downscale X to Y dimensions.
+        x = Down(x)
+
+        # Use directly all corregistered Sentinel-2 bands
+        # to estimate thermal emissivity.
+        Y_hat = self(x)
+        
+        # Validate against real thermal emissivity.
+        loss = self._loss(y[:, 6:], Y_hat)
+
+        # Log.
+        per_band = loss.mean(0)
         batch_loss = loss.mean()
 
-        self.log("opt_to_thermal_experiment/val/loss",
+        self._extra_out["y"] = y[batch_loss.mean(-1).argmax()]
+        self._extra_out["Y_hat"] = Y_hat[batch_loss.mean(-1).argmax()]
+
+        self.log("emissivity/valid/loss",
                  batch_loss,
-                 batch_size=batch.size(0), on_step=True, prog_bar=True)
+                 batch_size=loss.size(0),
+                 on_step=True, prog_bar=True)
 
-        self.log_dict({f"opt_to_thermal_experiment/val_{i}": v for i, v in
-                       enumerate(band_loss)}, batch_size=batch.size(0),
-                       on_step=True)
-
-        return batch_loss
-
-    def test_step(self, batch, batch_idx) -> Tensor:
-        Y_hat = self(batch)
-        loss = self.loss(batch[:, 6:], Y_hat)
-        band_loss = loss.mean(0)
-        batch_loss = loss.mean()
-
-        self.log("opt_to_thermal_experiment/test/loss",
-                 batch_loss,
-                 batch_size=batch.size(0), on_step=True, prog_bar=True)
-
-        self.log_dict({f"opt_to_thermal_experiment/test_{i}": v for i, v in
-                       enumerate(band_loss)}, batch_size=batch.size(0),
+        self.log_dict({f"emissivity/valid_{i}": v for i, v in
+                       enumerate(per_band)}, batch_size=loss.size(0),
                        on_step=True)
 
         return batch_loss

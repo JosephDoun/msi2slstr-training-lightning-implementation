@@ -11,7 +11,7 @@ class emissivity_datamodule(msi2slstr_datamodule):
     acquisitions for estimating energy emissions measured by the SLSTR sensor.
     """
     def __init__(self, batch_size: int = 32, datadir: str = 'data',
-                 num_workers: int = 4) -> None:
+                 num_workers: int = 15) -> None:
         super().__init__()
         self.save_hyperparameters(ignore=['_class_path'])
 

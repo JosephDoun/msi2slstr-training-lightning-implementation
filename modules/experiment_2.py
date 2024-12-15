@@ -257,7 +257,37 @@ class radiometric_reconstruction_module(LightningModule):
         """
         Validate reconstruction process.
         """
-        return
+        # Roll over training workflows.
+        # Get a) input, b) mangled input, c) radiometry and d) deep target.
+        t_in, flat_in, rad_in, _ =\
+        self._schemes[batch_idx % len(self._schemes)](batch, batch_idx)
+
+        # Target prediction.
+        Y_hat = self(flat_in, rad_in)
+        
+        # Estimated loss.
+        loss = self._loss(t_in, Y_hat)
+        
+        # Loss aggregation to build on.
+        batch_loss = loss.mean()
+
+        # For band evaluation.
+        per_band = loss.mean(0)
+
+        self.log("hp_metric", batch_loss)
+        self.log("training/loss/valid", batch_loss,
+                 logger=True, prog_bar=True, on_epoch=True,
+                 on_step=True, batch_size=per_band.size(0))
+        self.log_dict({**{f"training/band_{i}/valid": v for i, v in
+                          enumerate(per_band)},
+                       },
+                      on_step=True,
+                      on_epoch=True,
+                      prog_bar=False,
+                      logger=True,
+                      batch_size=loss.size(0))
+        
+        return batch_loss
     
     def test_step(self, batch, batch_idx) -> Tensor:
         """

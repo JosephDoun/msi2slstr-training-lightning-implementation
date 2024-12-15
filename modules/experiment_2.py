@@ -26,10 +26,12 @@ from math import sqrt
 
 from torch import rand
 from torch import randn
+from torch import randint
 from torch import zeros
+from torch import concat
 from torch import Tensor
 
-from .components import OpticalToThermal
+from .components import ReflectedToEmitted
 from .components import StaticNorm2D
 from .components import Stem
 from .components import ReScale2D
@@ -70,8 +72,8 @@ class radiometric_reconstruction_module(LightningModule):
 
         # Helper modules for training.
         self.match = ReScale2D()
-        self._therm = thermal_prediction.load_from_checkpoint(
-            "pretrained/thermal.ckpt").module
+        self._therm = emissivity_module.load_from_checkpoint(
+            "pretrained/emissivity.ckpt").module
         self._gauss = AvgPool2d(3, 1, 1, count_include_pad=False)
 
         self._initialize_weights()
@@ -109,6 +111,9 @@ class radiometric_reconstruction_module(LightningModule):
         return concat([x_o, x_t], dim=-3)
 
     def get_random_training_input(self, batch):
+            """
+            Randomly select between first and second batch elements.
+            """
             return self._build_high_res_input(batch) if rand(1) > .5 else\
                 batch[1]
 

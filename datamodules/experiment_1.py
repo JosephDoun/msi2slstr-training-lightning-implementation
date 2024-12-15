@@ -57,16 +57,3 @@ class msi2slstr_datamodule(LightningDataModule):
     
     def teardown(self, stage: str) -> None:
         return super().teardown(stage)
-
-
-class thermal_datamodule(msi2slstr_datamodule):
-    def __init__(self, batch_size: int = 32, datadir: str = 'data',
-                 num_workers: int = 4) -> None:
-        super().__init__()
-        self.save_hyperparameters(ignore=['_class_path'])
-
-    def setup(self, stage: str) -> None:
-        self.train, self.val, self.test = \
-            random_split(sen3dataset(t_size=2),
-                         [.8, .1, .1],
-                         Generator().manual_seed(0))

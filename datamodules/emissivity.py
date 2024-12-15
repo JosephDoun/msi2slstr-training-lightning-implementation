@@ -12,7 +12,7 @@ class emissivity_datamodule(msi2slstr_datamodule):
         self.save_hyperparameters(ignore=['_class_path'])
 
     def setup(self, stage: str) -> None:
-        self.train, self.val, self.test = \
-            random_split(msi2slstr_dataset(t_size=2),
+        self.train, self.val = \
+            random_split(msi2slstr_dataset(dirname='data', t_size=(100, 2)),
                          [.9, .1],
                          Generator().manual_seed(0))

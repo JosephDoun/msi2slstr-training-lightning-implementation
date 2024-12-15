@@ -212,6 +212,35 @@ class ScaledProjection(nn.Module):
         return self.module(x)
 
 
+class ChannelExpansion(nn.Module):
+    def __init__(self, size: int, _in: int, _out: int) -> None:
+        super().__init__()
+        assert not max(_in, _out) % min(_in, _out), "Not divisible."
+        self.resample = nn.UpsamplingBilinear2d((size, size))
+        self._range = _out // _in
+
+    def forward(self, x: Tensor):
+        x = self.resample(x)
+        # Repeat channels _in // _out times.
+        idx = arange(x.size(-3)).reshape(-1, 1)\
+            .repeat(1, self._range).flatten()
+        return x[:, idx]
+
+
+class ChannelCollapse(nn.Module):
+    def __init__(self, size: int, _in: int, _out: int) -> None:
+        super().__init__()
+        assert not max(_in, _out) % min(_in, _out), "Not divisible."
+        self.resample = nn.UpsamplingBilinear2d((size, size))
+        self._out = _out
+        self._range = _in // _out
+
+    def forward(self, x: Tensor):
+        x = self.resample(x)
+        return x.view(x.size(0), self._out, self._range,
+                      x.size(2), x.size(3)).sum(2)
+
+
 class CrossGatedConcat(nn.Module):
     def __init__(self, _in: int, _out: int, conn_in: int,
                  *args, **kwargs) -> None:

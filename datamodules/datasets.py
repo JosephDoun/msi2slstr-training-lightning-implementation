@@ -188,6 +188,9 @@ class msi2slstr_dataset(Dataset):
         :returns: The index of the data source to probe and the corresponding
             tile index of the selected data source.
         :rtype: tuple[int, int]
+
+        TODO
+        Needs written tests.
         """
         return index // len(self.sources[0]), index % len(self.sources[0])
 
@@ -250,3 +253,21 @@ class predictor_dataset(msi2slstr_dataset):
     def __call__(self, indices: tuple[int], x: Tensor) -> None:
         super().__call__()
         self.output(indices, x)
+
+
+class independent_pairs(Dataset):
+    """
+    Dataset of same-sized independent pairs of Sentinel-2 and Sentinel-3
+    images. For autoencoding.
+    """
+    def __init__(self, size: int = 100) -> None:
+        super().__init__()
+        self._sen2 = sen2dataset(t_size=size)
+        self._sen3 = sen3dataset(t_size=size)
+
+    def __len__(self):
+        return max([len(self._sen2), len(self._sen3)])
+
+    def __getitem__(self, index) -> tuple:
+        return (self._sen2[index % len(self._sen2)],
+                self._sen3[index % len(self._sen3)])

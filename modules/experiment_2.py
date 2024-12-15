@@ -120,13 +120,21 @@ class radiometric_reconstruction_module(LightningModule):
         rad_in = Down(t_in)
         return t_in, flat_in, rad_in, rad_in
 
-    def _training_scheme_3(self, x: Tensor, y: Tensor):
+    def _training_scheme_2(self, batch, batch_idx):
         """
-        Reconstruct high res image with latent injection of zeroes.
+        The zero case. Reconstruct image when latent injection is zero,
+        expecting no effect.
 
-        Random channel selection.
+        # NOTE: Random channel selection?
+
+        All targets are represented as `flat_in`, as `rad_in` does not
+        contribute. 
         """
-        return
+        t_in = self.get_training_input(batch, batch_idx)
+        flat_in = self._mangle_radiometry(t_in)
+        rad_in = Down(flat_in).fill_(0)
+        # Target is the tampered radiometry input.
+        return flat_in, flat_in, rad_in, Down(flat_in)
 
     def _thermal_training(self, x: Tensor, y: Tensor):
         """

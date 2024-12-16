@@ -35,3 +35,13 @@ class ValidAverageDownsampling(Module):
         _sum = _tensor.sum((-1, -2))
         nzerocount = _tensor.gt(0).sum((-1, -2))
         return _sum.div(nzerocount.add(1e-10))
+
+
+class SpatialAggregation(ValidAverageDownsampling):
+    def __init__(self, fn: str, scale: int = 50) -> None:
+        super().__init__(scale)
+        self.fn = fn
+
+    def forward(self, _tensor: Tensor) -> Tensor:
+        _tensor = self._reshape(_tensor)
+        return getattr(_tensor, self.fn)((-1, -2))

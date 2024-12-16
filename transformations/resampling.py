@@ -38,6 +38,9 @@ class ValidAverageDownsampling(Module):
 
 
 class SpatialAggregation(ValidAverageDownsampling):
+    """
+    Downsample an input image given a torch operation of choice.
+    """
     def __init__(self, fn: str, scale: int = 50) -> None:
         super().__init__(scale)
         self.fn = fn

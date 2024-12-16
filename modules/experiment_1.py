@@ -39,7 +39,7 @@ from .components import DownsamplingBlock
 from .components import Bridge
 from .components import FusionUpsamplingBlock
 from .components import Head
-from .components import ReflectedToEmitted
+from .components import ReflectiveToEmissive
 from .components import ReScale2D
 
 from .emissivity import emissivity_module
@@ -67,7 +67,7 @@ class msi2slstr(LightningModule):
         self.gauss = AvgPool2d(3, 1, 1, count_include_pad=False)
         self.stem = FusionStem(13, 32, 12, size)
         self.match = ReScale2D()
-        self.therm = ReflectedToEmitted(6, 6)
+        self.therm = ReflectiveToEmissive(6, 6)
         self.down_a = DownsamplingBlock( 32,  64, groups=2)
         self.down_b = DownsamplingBlock( 64, 128, groups=2)
         self.down_c = DownsamplingBlock(128, 256, groups=2)

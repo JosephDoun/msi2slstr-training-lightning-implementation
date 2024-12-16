@@ -1,5 +1,6 @@
 from typing import Any
 
+from torch import randint
 from torch import Tensor
 from torch.utils.tensorboard.writer import SummaryWriter
 from torch.optim import Adam
@@ -10,8 +11,7 @@ from transformations.normalization import channel_stretch
 from transformations.resampling import NonStrictAvgDownSamplingModule as Down
 
 from .components import StaticNorm2D
-from .components import ReflectedToEmitted
-from .components import ReScale2D
+from .components import ReflectiveToEmissive
 
 from metrics.ssim import cubic_ssim
 from config import DATA_CONFIG
@@ -26,9 +26,8 @@ class emissivity_module(LightningModule):
         super().__init__(*args, **kwargs)
         self.xnorm = StaticNorm2D("sen2")
         self.ynorm = StaticNorm2D("sen3")
-        self.match = ReScale2D()
-        self.module = ReflectedToEmitted(13, 6)
         self._extra_out = {}
+        self.module = ReflectiveToEmissive(6, 6)
         self.save_hyperparameters()
         self._loss = cubic_ssim(a=1, b=1, c=1, agg='mean')
 

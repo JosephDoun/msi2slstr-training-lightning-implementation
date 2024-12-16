@@ -39,7 +39,7 @@ class StaticNorm2D(nn.Module):
             .add(self.mean[:, channels])
 
 
-class ReflectedToEmitted(nn.Module):
+class ReflectiveToEmissive(nn.Module):
     """
     Given the reflective part of the spectrum corresponding to measurements
     of the first 6 bands of a Sentinel-3 RBT product, estimate the thermal

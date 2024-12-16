@@ -31,7 +31,7 @@ from torch import zeros
 from torch import concat
 from torch import Tensor
 
-from .components import ReflectedToEmitted
+from .components import ReflectiveToEmissive
 from .components import StaticNorm2D
 from .components import Stem
 from .components import ReScale2D
@@ -42,7 +42,7 @@ from .components import Bridge
 from .components import UpsamplingBlock
 from .components import Head
 
-from .experiment_1 import thermal_prediction
+from .emissivity import emissivity_module
 
 from config import DATA_CONFIG
 from metrics.ssim import cubic_ssim

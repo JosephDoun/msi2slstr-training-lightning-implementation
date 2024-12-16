@@ -24,6 +24,7 @@ class ValidAverageDownsampling(Module):
     
     def _reshape(self, _tensor: Tensor):
         shape = _tensor.shape
+        # Return shape: batch, channel, nytiles, nxtiles, tsize, tsize.
         return _tensor.reshape(shape[0], shape[1],
                                shape[2] // self.scale,
                                self.scale,

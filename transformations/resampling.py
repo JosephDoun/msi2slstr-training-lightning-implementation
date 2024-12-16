@@ -4,7 +4,8 @@ from torch.nn import Module
 from torch import Tensor
 
 
-AvgDownSamplingModule = AvgPool2d(50, 50, 0)
+StrictAvgDownSamplingModule = AvgPool2d(50, 50, 0, count_include_pad=False)
+NonStrictAvgDownSamplingModule = AvgPool2d(80, 50, 15, count_include_pad=False)
 UpsamplingModule = UpsamplingNearest2d(scale_factor=50)
 
 

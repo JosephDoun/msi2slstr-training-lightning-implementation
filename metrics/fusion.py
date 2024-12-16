@@ -1,7 +1,7 @@
 from torch import Tensor
 from torch import concat
 
-from transformations.resampling import AvgDownSamplingModule
+from transformations.resampling import StrictAvgDownSamplingModule
 from transformations.resampling import UpsamplingModule
 
 from .ssim import ssim
@@ -22,7 +22,7 @@ class msi2slstr_loss(ssim):
         self.signature = ssim((-3,))
 
     def _dsample(self, x: Tensor):
-        return AvgDownSamplingModule(x)
+        return StrictAvgDownSamplingModule(x)
 
     def _usample(self, x: Tensor):
         return UpsamplingModule(x)
@@ -61,15 +61,14 @@ class msi2slstr_loss(ssim):
             # Explicitly resist plane flatness.
             # (Maintain subpixel variance as high
             #  as permitted by high-res correlation.)
-            (1 - self.s(Y_hat, self._usample(y))) ** 2
+            (1 - self.s(Y_hat, self._usample(y)))
 
             )\
-                .mul(self.c(Y_hat, topology) ** .2)\
                 .clamp(.0)
 
         thermal = super().forward(thermal_estimate_y, y[:, 6:])
 
-        thermal = thermal.add(
+        thermal = thermal.mul(
             # Include channel-axis pixel signature similarity.
             self.signature(thermal_estimate_y, y[:, 6:])
             .clamp(0)

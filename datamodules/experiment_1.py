@@ -36,7 +36,7 @@ class msi2slstr_datamodule(LightningDataModule):
                           num_workers=self.hparams.num_workers,
                           sampler=None,
                           batch_sampler=None)
-    
+
     def val_dataloader(self) -> DataLoader:
         return DataLoader(self.val,
                           batch_size=4,

@@ -374,19 +374,3 @@ class radiometric_reconstruction_module(LightningModule):
                                           eta_min=1e-8)
         return [opt], [{"scheduler": sch, "interval": "step"}]
 
-
-class latent_substitution_experiment(radiometric_reconstruction_module):
-    """
-    Force the bridge to target the coarse resolution version during an
-    auto-encoding task, without injection.
-
-    This would make then the latent space substitutable with other
-    radiometric sources.
-
-    TODO
-    """
-    def __init__(self, size: int = 100, *args: Any, **kwargs: Any) -> None:
-        super().__init__(size, *args, **kwargs)
-
-    def training_step(self, batch, batch_idx) -> Tensor:
-        ...

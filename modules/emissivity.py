@@ -29,7 +29,7 @@ class emissivity_module(LightningModule):
         self._extra_out = {}
         self.module = ReflectiveToEmissive(6, 6)
         self.save_hyperparameters()
-        self._loss = cubic_ssim(a=1, b=1, c=1, agg='mean')
+        self._loss = cubic_ssim(a=1, b=.5, c=2, agg='prod')
 
     def forward(self, x):
         return self.module(x)
@@ -43,21 +43,26 @@ class emissivity_module(LightningModule):
         x, y = data
         x, y = self.xnorm(x), self.ynorm(y)
 
-        # Downscale X to Y dimensions.
-        x = Down(x)
+        # Directly use the 6 mutual regions of spectrum
+        # for training. Avoids the need for radiometric scaling
+        # of the Sentinel-2 input later.
+        x = Down(x[:, DATA_CONFIG["sen2_bands"]])
+        
+        # Randomly dropout a single input band.
+        x[:, randint(6, (1,))].fill_(0)
 
         # Use directly all corregistered Sentinel-2 bands
-        # to estimate thermal emissivity.
+        # to estimate thermal emissivity. See above.
         Y_hat = self(x)
         
-        # Validate against real thermal emissivity.
+        # Validate against target thermal emissivity.
         loss = self._loss(y[:, 6:], Y_hat)
 
         # Log.
         per_band = loss.mean(0)
         batch_loss = loss.mean()
 
-        self._extra_out["y"] = y[batch_loss.mean(-1).argmax()]
+        self._extra_out["y"] = y[batch_loss.mean(-1).argmax(), 6:]
         self._extra_out["Y_hat"] = Y_hat[batch_loss.mean(-1).argmax()]
 
         self.log("hp_metric", batch_loss, batch_size=loss.size(0))
@@ -96,8 +101,10 @@ class emissivity_module(LightningModule):
         x, y = data
         x, y = self.xnorm(x), self.ynorm(y)
 
-        # Downscale X to Y dimensions.
-        x = Down(x)
+        # Directly use the 6 mutual regions of spectrum
+        # for training. Avoids the need for radiometric scaling
+        # of the Sentinel-2 input later.
+        x = Down(x[:, DATA_CONFIG["sen2_bands"]])
 
         # Use directly all corregistered Sentinel-2 bands
         # to estimate thermal emissivity.
@@ -110,7 +117,7 @@ class emissivity_module(LightningModule):
         per_band = loss.mean(0)
         batch_loss = loss.mean()
 
-        self._extra_out["y"] = y[batch_loss.mean(-1).argmax()]
+        self._extra_out["y"] = y[batch_loss.mean(-1).argmax(), 6:]
         self._extra_out["Y_hat"] = Y_hat[batch_loss.mean(-1).argmax()]
 
         self.log("emissivity/valid/loss",

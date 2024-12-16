@@ -51,10 +51,11 @@ from transformations.resampling import NonStrictAvgDownSamplingModule as Down
 
 
 class radiometric_reconstruction_module(LightningModule):
-    def __init__(self, lr: float = 1e-3, size: int = 100,
+    def __init__(self, lr: float = 1e-3, size: int = 100, strict: bool = True,
                  *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.save_hyperparameters()
+        self.strict_loading = strict
         self._extra_out = {}
         self.xnorm = StaticNorm2D("sen2")
         self.ynorm = StaticNorm2D("sen3")

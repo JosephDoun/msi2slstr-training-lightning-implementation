@@ -12,11 +12,11 @@ UpsamplingModule = UpsamplingNearest2d(scale_factor=50)
 class ValidAverageDownsampling(Module):
     """
     Creates a spatially (meaning in x,y axes) coarser copy of the provided
-    array by averaging the valid values.
+    array by averaging the valid (non zero) values.
 
     :param scale: The area of the spatial aggregation in number of elements
         (pixels.), defaults to 50.
-    :param scale: int
+    :type scale: int
     """
 
     def __init__(self, scale: int = 50) -> None:

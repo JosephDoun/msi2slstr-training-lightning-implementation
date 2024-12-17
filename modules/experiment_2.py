@@ -38,7 +38,7 @@ from .components import ReScale2D
 from .components import ChannelExpansion
 from .components import ChannelCollapse
 from .components import DownsamplingBlock
-from .components import Bridge
+from .components import FusionBridge as Bridge
 from .components import UpsamplingBlock
 from .components import Head
 
@@ -155,7 +155,7 @@ class radiometric_reconstruction_module(LightningModule):
         b = self.d48(a)
         c = self.d96(b)
         x = self.d192(c)
-        x = self.b384(x + self.e192(y))
+        x = self.b384(x, self.e192(y))
         # Activation save for deep supervision.
         self._extra_out['a384'] = x
         x = self.u192(x, c)

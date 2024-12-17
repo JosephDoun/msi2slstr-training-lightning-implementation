@@ -81,6 +81,7 @@ class radiometric_reconstruction_module(LightningModule):
         self._loss = cubic_ssim(agg='prod')
         self._schemes = [self._training_scheme_1,
                          self._training_scheme_2]
+        self._up = UpsamplingBilinear2d((size, size))
 
     def _initialize_weights(self):
         for _, m in self.named_modules():

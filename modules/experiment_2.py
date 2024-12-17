@@ -91,17 +91,23 @@ class radiometric_reconstruction_module(LightningModule):
 
     def _mangle_radiometry(self, x: Tensor):
         """
-        Randomly and independently scale and offset channel values.
+        Randomly and independently scale, offset and add noise to input data.
         """
-        # 0.5, 1.5
-        scale = rand(x.size(0), x.size(1), 1, 1, device=x.get_device())\
-            .mul(1.).add(.5)
-        # +- .5
-        offset = randn(x.size(0), x.size(1), 1, 1, device=x.get_device())\
+        return x.mul(
+            # Global scaling.
+            rand(x.size(0), x.size(1), 1, 1, device=x.get_device())
+            .mul(1.)
+            .add(.5)
+        ).add(
+            # Global offsetting.
+            randn(x.size(0), x.size(1), 1, 1, device=x.get_device())
             .mul(.5)
-        return x.mul(scale).add(offset).add(
-            # Added noise.
-            randn(*x.shape, device=x.get_device()).mul_(.1)
+        ).add(
+            # High frequency noise.
+            randn(*x.shape, device=x.get_device()).mul_(.2)
+        ).add(
+            # Low frequency noise.
+            self._up(randn(x.size(0), x.size(1), 5, 5, device=x.device))
         )
     
     def _dropout(self, x: Tensor):

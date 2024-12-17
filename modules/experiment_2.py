@@ -119,30 +119,20 @@ class radiometric_reconstruction_module(LightningModule):
         return concat([x[:, DATA_CONFIG["sen2_bands"]],
                        self._emissivity(self._gauss(x)).detach()], dim=-3)
 
-    def get_random_training_input(self, batch):
-            """
-            Randomly select between first and second batch elements.
-            """
-            return self._build_high_res_input(batch) if rand(1) > .5 else\
-                batch[1]
-
-    def _training_scheme_1(self, batch):
+    def _training_scheme_1(self, x: Tensor):
         """
         Reconstruct low res image expected radiometry reinjection in latent
         space.
         """
-        # Input tensor.
-        t_in = self.get_random_training_input(batch)
-        
         # Leveled input: Randomly scale input channels
         # to lose radiometric info.
-        flat_in = self._mangle_radiometry(t_in)
+        flat_in = self._mangle_radiometry(x)
         
         # Downsampled input as radiometric information..
-        rad_in = Down(t_in)
-        return t_in, flat_in, rad_in, rad_in
+        rad_in = Down(x)
+        return x, flat_in, rad_in, rad_in
 
-    def _training_scheme_2(self, batch):
+    def _training_scheme_2(self, x: Tensor):
         """
         The zero case. Reconstruct image when latent injection is zero,
         expecting no effect.
@@ -152,8 +142,7 @@ class radiometric_reconstruction_module(LightningModule):
         All targets are represented as `flat_in`, as `rad_in` does not
         contribute. 
         """
-        t_in = self.get_random_training_input(batch)
-        flat_in = self._mangle_radiometry(t_in)
+        flat_in = self._mangle_radiometry(x)
         rad_in = Down(flat_in).fill_(0)
         # Target is the tampered radiometry input.
         return flat_in, flat_in, rad_in, Down(flat_in)

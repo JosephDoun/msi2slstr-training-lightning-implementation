@@ -109,23 +109,15 @@ class radiometric_reconstruction_module(LightningModule):
             # Low frequency noise.
             self._up(randn(x.size(0), x.size(1), 5, 5, device=x.device))
         )
-    
-    def _dropout(self, x: Tensor):
-        """
-        Dropout a random input band.
-        """
-        ...
 
-    def _build_high_res_input(self, batch):
+    def _build_high_res_input(self, x: Tensor):
         """
         Constructs the expected input for the fusion task of Sentinel-2/3
         inputs.
         """
-        x, y = batch
-        x_o = x[:, DATA_CONFIG["sen2_bands"]]
         # Use a filtered version of X to estimate emissivity.
-        x_t = self._emissivity(self._gauss(x_o)).detach()
-        return concat([x_o, x_t], dim=-3)
+        return concat([x[:, DATA_CONFIG["sen2_bands"]],
+                       self._emissivity(self._gauss(x)).detach()], dim=-3)
 
     def get_random_training_input(self, batch):
             """

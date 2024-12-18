@@ -167,6 +167,20 @@ class Bridge(nn.Module):
         return self.module(x).add(self.residual(x))
 
 
+class FusionBridge(Bridge):
+    """
+    Module for the cross attention between the decoder output
+    and the injected radiometry tensor to fuse.
+    """
+    def __init__(self, _in: int, _out: int, *args, **kwargs) -> None:
+        super().__init__(_in*2, _out, *args, **kwargs)
+        self._att = CrossGatedConcat(_in, _out, _in)
+
+    def forward(self, x, i):
+        x = self._att(x, i)
+        return self.module(x).add(self.residual(x))
+
+
 class Stem(nn.Module):
     def __init__(self, _in: int, _out: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)

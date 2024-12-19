@@ -204,8 +204,11 @@ class radiometric_reconstruction_module(LightningModule):
         """
         Generalized random training for radiometric recovery.
         """
-        batch = (self.xnorm(batch[0]), self.ynorm(batch[1]))
-        # x, y = batch
+        # Expects regular msi2slstr corregistered data.
+        data, metadata = batch
+        dates, tiles = metadata
+
+        x, y = (self.xnorm(data[0]), self.ynorm(data[1]))
 
         # Thermal extrapolation helper.
         # Train the module on size 100x100 Y.
@@ -215,14 +218,15 @@ class radiometric_reconstruction_module(LightningModule):
         # Roll over training workflows.
         # Get a) target, b) mangled input, c) radiometry and d) deep target.
         t_in, flat_in, rad_in, deep_in =\
-        self._schemes[batch_idx % len(self._schemes)](batch)
+        self._schemes[batch_idx % len(self._schemes)](
+            self._build_high_res_input(x))
 
         # Target prediction.
         Y_hat = self(flat_in, rad_in)
-        
+
         # Estimated loss.
         loss = self._loss(t_in, Y_hat)
-        
+
         # Loss aggregation to build on.
         batch_loss = loss.mean()
 
@@ -260,12 +264,15 @@ class radiometric_reconstruction_module(LightningModule):
         """
         Validate reconstruction process.
         """
-        batch = (self.xnorm(batch[0]), self.ynorm(batch[1]))
+        batch, metadata = batch
+        x, y = batch
+        x, y = (self.xnorm(x), self.ynorm(y))
 
         # Roll over training workflows.
         # Get a) input, b) mangled input, c) radiometry and d) deep target.
         t_in, flat_in, rad_in, _ =\
-        self._schemes[batch_idx % len(self._schemes)](batch)
+        self._schemes[batch_idx % len(self._schemes)](
+            self._build_high_res_input(x))
 
         # Target prediction.
         Y_hat = self(flat_in, rad_in)
@@ -318,7 +325,7 @@ class radiometric_reconstruction_module(LightningModule):
         # For band evaluation.
         per_band = loss.mean(0)
 
-        self.log("hp_metric", batch_loss)
+        self.log("hp_metric", batch_loss, batch_size=loss.size(0))
         self.log("training/loss/test", batch_loss,
                  logger=True, prog_bar=True, on_epoch=True,
                  on_step=True, batch_size=per_band.size(0))
@@ -349,7 +356,7 @@ class radiometric_reconstruction_module(LightningModule):
         indices, (x, y) = batch
         x, y = self.xnorm(x), self.ynorm(y)
 
-        x = self._build_high_res_input((x, y))
+        x = self._build_high_res_input(x)
 
         # Predict
         Y_hat = self.ynorm.denorm(self(x, y))

@@ -16,6 +16,7 @@ from torch import no_grad
 
 from torch.nn import Conv2d
 from torch.nn import AvgPool2d
+from torch.nn import UpsamplingBilinear2d
 
 from torch.optim import Adam
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts

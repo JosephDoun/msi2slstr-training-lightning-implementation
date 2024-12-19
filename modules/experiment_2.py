@@ -72,7 +72,7 @@ class radiometric_reconstruction_module(LightningModule):
         self.h12 = Head(48, 12)
 
         # Helper modules for training.
-        self.match = ReScale2D()
+        self._match = ReScale2D()
         self._emissivity = emissivity_module.load_from_checkpoint(
             "pretrained/emissivity.ckpt").module
         self._gauss = AvgPool2d(3, 1, 1, count_include_pad=False)
@@ -209,8 +209,8 @@ class radiometric_reconstruction_module(LightningModule):
 
         # Thermal extrapolation helper.
         # Train the module on size 100x100 Y.
-        # thermal_y = self._thermal_training(x, y)
-        # thermal_loss = self._loss(thermal_y, y[:, 6:]).mean()
+        thermal_y = self._emissivity(Down(x))
+        thermal_loss = self._loss(thermal_y, y[:, 6:]).mean()
 
         # Roll over training workflows.
         # Get a) target, b) mangled input, c) radiometry and d) deep target.
@@ -231,7 +231,7 @@ class radiometric_reconstruction_module(LightningModule):
 
         self.log("training/loss/train", batch_loss,
                  logger=True, prog_bar=True, on_epoch=True,
-                 on_step=True, batch_size=per_band.size(0))
+                 on_step=True, batch_size=loss.size(0))
         self.log_dict({**{f"training/band_{i}/train": v for i, v in
                           enumerate(per_band)},
                        },
@@ -252,9 +252,9 @@ class radiometric_reconstruction_module(LightningModule):
 
         self.log("training/deep_supervision/train", deep_loss,
                  logger=True, prog_bar=False, on_epoch=True,
-                 on_step=True, batch_size=per_band.size(0))
+                 on_step=True, batch_size=loss.size(0))
 
-        return batch_loss.add(deep_loss) # .add(thermal_loss)
+        return batch_loss.add(deep_loss).add(thermal_loss)
     
     def validation_step(self, batch, batch_idx) -> Tensor:
         """
@@ -282,7 +282,7 @@ class radiometric_reconstruction_module(LightningModule):
         self.log("hp_metric", batch_loss, batch_size=loss.size(0))
         self.log("training/loss/valid", batch_loss,
                  logger=True, prog_bar=True, on_epoch=True,
-                 on_step=True, batch_size=per_band.size(0))
+                 on_step=True, batch_size=loss.size(0))
         self.log_dict({**{f"training/band_{i}/valid": v for i, v in
                           enumerate(per_band)},
                        },

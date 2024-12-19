@@ -14,7 +14,6 @@ from .components import StaticNorm2D
 from .components import ReflectiveToEmissive
 
 from metrics.ssim import cubic_ssim
-from config import DATA_CONFIG
 
 
 class emissivity_module(LightningModule):
@@ -27,7 +26,7 @@ class emissivity_module(LightningModule):
         self.xnorm = StaticNorm2D("sen2")
         self.ynorm = StaticNorm2D("sen3")
         self._extra_out = {}
-        self.module = ReflectiveToEmissive(6, 6)
+        self.module = ReflectiveToEmissive(13, 6)
         self.save_hyperparameters()
         self._loss = cubic_ssim(a=1, b=.5, c=2, agg='prod')
 
@@ -46,10 +45,11 @@ class emissivity_module(LightningModule):
         # Directly use the 6 mutual regions of spectrum
         # for training. Avoids the need for radiometric scaling
         # of the Sentinel-2 input later.
-        x = Down(x[:, DATA_CONFIG["sen2_bands"]])
+        # Update: Use whole Sentinel-2 input to target emissivity bands.
+        x = Down(x)
         
         # Randomly dropout a single input band.
-        x[:, randint(6, (1,))].fill_(0)
+        x[:, randint(13, (1,))].fill_(0)
 
         # Use directly all corregistered Sentinel-2 bands
         # to estimate thermal emissivity. See above.
@@ -101,10 +101,7 @@ class emissivity_module(LightningModule):
         x, y = data
         x, y = self.xnorm(x), self.ynorm(y)
 
-        # Directly use the 6 mutual regions of spectrum
-        # for training. Avoids the need for radiometric scaling
-        # of the Sentinel-2 input later.
-        x = Down(x[:, DATA_CONFIG["sen2_bands"]])
+        x = Down(x)
 
         # Use directly all corregistered Sentinel-2 bands
         # to estimate thermal emissivity.
@@ -117,8 +114,8 @@ class emissivity_module(LightningModule):
         per_band = loss.mean(0)
         batch_loss = loss.mean()
 
-        self._extra_out["y"] = y[batch_loss.mean(-1).argmax(), 6:]
-        self._extra_out["Y_hat"] = Y_hat[batch_loss.mean(-1).argmax()]
+        self._extra_out["y"] = y[batch_loss.mean(-1).argmin(), 6:]
+        self._extra_out["Y_hat"] = Y_hat[batch_loss.mean(-1).argmin()]
 
         self.log("emissivity/valid/loss",
                  batch_loss,

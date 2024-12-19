@@ -200,10 +200,6 @@ class radiometric_reconstruction_module(LightningModule):
                           global_step=self.current_epoch,
                           dataformats='NCHW')
     
-    def on_train_start(self) -> None:
-        super().on_train_start()
-        self._emissivity.eval()
-    
     def training_step(self, batch, batch_idx) -> Tensor:
         """
         Generalized random training for radiometric recovery.

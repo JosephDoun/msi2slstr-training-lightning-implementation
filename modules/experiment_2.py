@@ -97,7 +97,7 @@ class radiometric_reconstruction_module(LightningModule):
         return x.mul(
             # Global scaling.
             rand(x.size(0), x.size(1), 1, 1, device=x.get_device())
-            .mul(1.)
+            .mul(1.5)
             .add(.5)
         ).add(
             # Global offsetting.
@@ -105,10 +105,12 @@ class radiometric_reconstruction_module(LightningModule):
             .mul(.5)
         ).add(
             # High frequency noise.
-            randn(*x.shape, device=x.get_device()).mul_(.2)
+            randn(*x.shape, device=x.get_device()).mul_(.1)
         ).add(
             # Low frequency noise.
-            self._up(randn(x.size(0), x.size(1), 5, 5, device=x.device))
+            self._up(rand(x.size(0), x.size(1), 2, 2, device=x.device)
+                     .add(-1))
+                     .mul(.2)
         )
 
     def _build_high_res_input(self, x: Tensor):
@@ -156,7 +158,8 @@ class radiometric_reconstruction_module(LightningModule):
         c = self.d96(b)
         x = self.d192(c)
         x = self.b384(x, self.e192(y))
-        # Activation save for deep supervision.
+        # Save reference to activation
+        # for deep supervision.
         self._extra_out['a384'] = x
         x = self.u192(x, c)
         x = self.u96(x, b)

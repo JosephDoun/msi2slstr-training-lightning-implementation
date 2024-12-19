@@ -229,7 +229,6 @@ class radiometric_reconstruction_module(LightningModule):
         # For band evaluation.
         per_band = loss.mean(0)
 
-        self.log("hp_metric", batch_loss)
         self.log("training/loss/train", batch_loss,
                  logger=True, prog_bar=True, on_epoch=True,
                  on_step=True, batch_size=per_band.size(0))
@@ -280,7 +279,7 @@ class radiometric_reconstruction_module(LightningModule):
         # For band evaluation.
         per_band = loss.mean(0)
 
-        self.log("hp_metric", batch_loss)
+        self.log("hp_metric", batch_loss, batch_size=loss.size(0))
         self.log("training/loss/valid", batch_loss,
                  logger=True, prog_bar=True, on_epoch=True,
                  on_step=True, batch_size=per_band.size(0))

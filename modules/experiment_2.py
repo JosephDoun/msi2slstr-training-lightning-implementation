@@ -179,11 +179,11 @@ class radiometric_reconstruction_module(LightningModule):
         """
         # Run one extra sample during epoch end.
         loader: DataLoader = self.trainer.train_dataloader
-        x, y = loader.dataset[0]
+        data, _ = loader.dataset[0]
+        x, y = data
         x, y = (self.xnorm(x.cuda()), self.ynorm(y.cuda()))
         
-        x = self._build_high_res_input((x, y))
-        
+        x = self._build_high_res_input(x)
         y = Down(x).fill_(0)
         
         Y_hat = self(x, y)

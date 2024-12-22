@@ -97,4 +97,5 @@ class cubic_ssim(ssim):
 
     def forward(self, x: Tensor, y: Tensor) -> Tensor:
         channel_axis = self._channel_axis(x, y).mean((-1, -2)).unsqueeze(-1)
-        return super().forward(x, y).mul(channel_axis)
+        return stack([super().forward(x, y),
+                      channel_axis.repeat(1, x.size(1))]).mean(0)

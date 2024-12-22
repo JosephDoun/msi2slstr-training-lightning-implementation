@@ -285,7 +285,7 @@ class CrossGatedConcat(nn.Module):
                       padding=1,
                       bias=False,
                       padding_mode=CONFIG['PADDING_MODE']))
-        
+
         self.score = nn.Sequential(
             nn.BatchNorm2d(_out, momentum=CONFIG['BATCHNORM_MOMENT']),
             Activation(inplace=True),
@@ -303,7 +303,7 @@ class CrossGatedConcat(nn.Module):
         return einsum("...ji,...ji->...ji",
                       concat([x, connection], dim=-3),
                       score)
-    
+
 
 class ASPP(nn.Module):
     def __init__(self, _in: int, _out: int, scale_1: int, scale_2: int,

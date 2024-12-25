@@ -62,12 +62,12 @@ class FusedImage(Image):
     def __init__(self, sen3imagepath: str, t_size: int, pad: int = 0) -> None:
         super().__init__(sen3imagepath, t_size, pad)
 
-        Translate("output.tif", self.dataset, xRes=10, yRes=10, noData=0,
+        Translate("fused-image.tif", self.dataset, xRes=10, yRes=10, noData=0,
                   callback=TermProgress, creationOptions=["COMPRESS=ZSTD",
                                                           "PREDICTOR=2",
                                                           "BIGTIFF=YES"])
         
-        self.dataset = Open("output.tif", GA_Update)
+        self.dataset = Open("fused-image.tif", GA_Update)
 
         self.tile_coords = get_array_coords_list(t_size=t_size,
                                                  sizex=self.dataset

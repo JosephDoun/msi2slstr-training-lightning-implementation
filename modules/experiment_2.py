@@ -143,8 +143,6 @@ class radiometric_reconstruction_module(LightningModule):
         return x, flat_in, rad_in, rad_in
 
     def forward(self, x: Tensor, y: Tensor) -> Any:
-        # x = self.xnorm(x)
-        # y = self.ynorm(y)
         a = self.s24(x)
         b = self.d48(a)
         c = self.d96(b)
@@ -157,7 +155,7 @@ class radiometric_reconstruction_module(LightningModule):
         x = self.u96(x, b)
         x = self.u48(x, a)
         x = self.h12(x)
-        return x # self.ynorm.denorm(x)
+        return x
 
     def on_train_epoch_end(self) -> None:
         """

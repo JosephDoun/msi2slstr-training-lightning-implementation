@@ -47,6 +47,8 @@ from .emissivity import emissivity_module
 
 from config import DATA_CONFIG
 from metrics.ssim import cubic_ssim
+from metrics.fusion import fusion_energy_metric
+from metrics.fusion import fusion_topo_metric
 from transformations.normalization import channel_stretch
 from transformations.resampling import NonStrictAvgDownSamplingModule as Down
 
@@ -80,8 +82,8 @@ class radiometric_reconstruction_module(LightningModule):
 
         self._initialize_weights()
         self._loss = cubic_ssim(agg='prod')
-        self._schemes = [self._training_scheme_1,
-                         self._training_scheme_2]
+        self._fusion_energy_evaluation = fusion_energy_metric(agg='mean')
+        self._fusion_topo_evaluation = fusion_topo_metric(agg='mean')
         self._up = UpsamplingBilinear2d((size, size))
 
     def _initialize_weights(self):

@@ -217,10 +217,10 @@ class radiometric_reconstruction_module(LightningModule):
         # For band evaluation.
         per_band = loss.mean(0)
 
-        self.log("training/loss/train", batch_loss,
+        self.log("recon./train", batch_loss,
                  logger=True, prog_bar=True, on_epoch=True,
                  on_step=True, batch_size=loss.size(0))
-        self.log_dict({**{f"training/band_{i}/train": v for i, v in
+        self.log_dict({**{f"recon./band_{i}/train": v for i, v in
                           enumerate(per_band)},
                        },
                       on_step=True,
@@ -238,7 +238,7 @@ class radiometric_reconstruction_module(LightningModule):
             deep_in
         ).mean()
 
-        self.log("training/deep_supervision/train", deep_loss,
+        self.log("recon./deep/train", deep_loss,
                  logger=True, prog_bar=False, on_epoch=True,
                  on_step=True, batch_size=loss.size(0))
 
@@ -271,10 +271,10 @@ class radiometric_reconstruction_module(LightningModule):
         per_band = loss.mean(0)
 
         self.log("hp_metric", batch_loss, batch_size=loss.size(0))
-        self.log("training/loss/valid", batch_loss,
+        self.log("recon./val", batch_loss,
                  logger=True, prog_bar=True, on_epoch=True,
-                 on_step=True, batch_size=loss.size(0))
-        self.log_dict({**{f"training/band_{i}/valid": v for i, v in
+                 on_step=False, batch_size=loss.size(0))
+        self.log_dict({**{f"recon./band_{i}/val": v for i, v in
                           enumerate(per_band)},
                        },
                       on_step=True,

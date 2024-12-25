@@ -100,20 +100,24 @@ class radiometric_reconstruction_module(LightningModule):
         return x.mul(
             # Global scaling.
             rand(x.size(0), x.size(1), 1, 1, device=x.get_device())
-            .mul(1.5)
-            .add(.5)
+            # .mul(2.)
+            .add(.1)
         ).add(
             # Global offsetting.
             randn(x.size(0), x.size(1), 1, 1, device=x.get_device())
             .mul(.5)
         ).add(
-            # High frequency noise.
-            randn(*x.shape, device=x.get_device()).mul_(.1)
-        ).add(
             # Low frequency noise.
-            self._up(rand(x.size(0), x.size(1), 2, 2, device=x.device)
-                     .add(-1))
-                     .mul(.2)
+            self._up(randn(x.size(0), x.size(1), 4, 4, device=x.device)
+                     .mul(.5))
+                     .mul(
+                         # Only change brighter half of rasters.
+                         # NOTE: Important -- it trains to anchor down the
+                         # low values as adjusted globally and adjusts high
+                         # values to decrease loss. Maintains high
+                         # level of scene cohesion across patches.
+                         ((x - x.mean((-1, -2), keepdim=True)) > 0)
+                         )
         )
 
     def _drop_one(self, x: Tensor):

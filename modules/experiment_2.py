@@ -120,12 +120,6 @@ class radiometric_reconstruction_module(LightningModule):
                          )
         )
 
-    def _drop_one(self, x: Tensor):
-        """
-        Zero-out an entire channel, randomly.
-        """
-        x[:, randint(x.size(1), (1,))].fill_(0)
-
     def _build_high_res_input(self, x: Tensor):
         """
         Constructs the expected input for the fusion task of Sentinel-2/3

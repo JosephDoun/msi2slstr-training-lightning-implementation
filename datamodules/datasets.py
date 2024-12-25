@@ -58,7 +58,7 @@ class Image(Dataset):
                (self.dataset.RasterYSize // self.t_size)
 
 
-class FusionImage(Image):
+class FusedImage(Image):
     def __init__(self, sen3imagepath: str, t_size: int, pad: int = 0) -> None:
         super().__init__(sen3imagepath, t_size, pad)
 

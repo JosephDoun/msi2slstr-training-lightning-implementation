@@ -54,8 +54,8 @@ class ReflectiveToEmissive(nn.Module):
             nn.BatchNorm2d(_in, momentum=1e-1),
             nn.Conv2d(_in, _in * 2, 1),
             DualConv(_in * 2, _in * 4, kernel_size=1, padding=0),
-            DualConv(_in * 4, _in * 2, kernel_size=1, padding=0),
-            nn.Conv2d(_in * 2, _out, 1),
+            Activation(inplace=True),
+            nn.Conv2d(_in * 4, _out, 1),
             nn.BatchNorm2d(_out, momentum=1e-1),
         )
 

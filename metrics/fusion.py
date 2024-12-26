@@ -89,4 +89,23 @@ class msi2slstr_loss(ssim):
                  thermal_estimate_y: Tensor,
                  thermal_estimate_x: Tensor) -> Tensor:
         return super().__call__(x, Y_hat, y, thermal_estimate_y,
-                                thermal_estimate_x)
+                                thermal_estimate_x);
+
+
+class fusion_energy_metric(ssim):
+    """
+    Validation metric. Evaluate degree of energy preservation in the
+    fused image.
+    """
+    def forward(self, y: Tensor, Y_hat: Tensor):
+        return super().forward(y, StrictAvgDownSamplingModule(Y_hat))
+
+
+class fusion_topo_metric(ssim):
+    """
+    Validation metric. Evaluate the degree of the preserved topological
+    information in the fused image.
+    """
+    def forward(self, x: Tensor, Y_hat: Tensor) -> Tensor:
+        return super().s(x, Y_hat)
+

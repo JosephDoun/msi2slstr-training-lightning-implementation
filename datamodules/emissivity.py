@@ -1,5 +1,5 @@
-from .experiment_1 import msi2slstr_datamodule
-from .experiment_1 import random_split
+from .fusion import msi2slstr_datamodule
+from .fusion import random_split
 from .datasets import msi2slstr_dataset
 
 from torch import Generator

@@ -242,9 +242,9 @@ class sen2dataset(msi2slstr_dataset):
 
 
 class predictor_dataset(msi2slstr_dataset):
-    def __init__(self, dirname: str, *args, **kwargs):
-        super().__init__(dirname, t_size=(100, 2), *args, **kwargs)
-        self.output = FusionImage(self.sources[0].sen3source.imagepath,
+    def __init__(self, dirname: str, t_size=(100, 2), *args, **kwargs):
+        super().__init__(dirname, t_size=t_size, *args, **kwargs)
+        self.output = FusedImage(self.sources[0].sen3source.imagepath,
                                   self.sources[0].sen2source.t_size)
 
     def __getitem__(self, index) -> tuple[tuple[int], tuple[Tensor, Tensor]]:

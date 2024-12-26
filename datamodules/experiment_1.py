@@ -26,7 +26,7 @@ class msi2slstr_datamodule(LightningDataModule):
     def setup(self, stage: str) -> None:
         self.train, self.val, self.test = \
             random_split(msi2slstr_dataset(self.hparams.datadir),
-                         [.8, .1, .1],
+                         [.9, .05, .05],
                          Generator().manual_seed(0))
 
     def train_dataloader(self) -> DataLoader:
@@ -36,22 +36,30 @@ class msi2slstr_datamodule(LightningDataModule):
                           shuffle=True,
                           num_workers=self.hparams.num_workers,
                           sampler=None,
-                          batch_sampler=None)
+                          batch_sampler=None,
+                          prefetch_factor=2)
 
     def val_dataloader(self) -> DataLoader:
         return DataLoader(self.val,
-                          batch_size=4,
+                          batch_size=self.hparams.batch_size,
                           pin_memory=True,
-                          num_workers=4)
+                          num_workers=15,
+                          prefetch_factor=4)
     
     def test_dataloader(self) -> DataLoader:
-        return DataLoader(self.test, batch_size=4, num_workers=4)
+        return DataLoader(self.test,
+                          batch_size=self.hparams.batch_size,
+                          num_workers=self.hparams.num_workers,
+                          pin_memory=True,
+                          prefetch_factor=2)
     
     def predict_dataloader(self) -> DataLoader:
-        return DataLoader(predictor_dataset(self.hparams.datadir),
-                          batch_size=1,
+        return DataLoader(predictor_dataset(self.hparams.datadir,
+                                            self.hparams.t_size),
+                          batch_size=self.hparams.batch_size,
                           pin_memory=True,
-                          num_workers=2)
+                          num_workers=self.hparams.num_workers,
+                          prefetch_factor=2)
     
     def on_exception(self, exception: BaseException) -> None:
         return super().on_exception(exception)

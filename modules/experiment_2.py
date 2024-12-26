@@ -284,54 +284,43 @@ class radiometric_reconstruction_module(LightningModule):
     
     def test_step(self, batch, batch_idx) -> Tensor:
         """
-        Mix inputs for fusion task fed by the msi2slstr dataset.
-        Should be evaluated using the fusion loss.
-        TODO
+        Evaluation of the fusion results.
         """
         data, metadata = batch
         dates, tiles = metadata
-        batch = (self.xnorm(batch[0]), self.ynorm(batch[1]))
-        x, y = batch
-        x = self._build_high_res_input(batch=batch)
+        x, y = data
+        x, y = (self.xnorm(x), self.ynorm(y))
+        x = self._build_high_res_input(x)
         # Target prediction.
         Y_hat = self(x, y)
         
-        # Estimated loss. NOTE: Needs fusion loss.
-        # TODO
-        loss = ... # self._loss(x, y, Y_hat)
+        energy = self._fusion_energy_evaluation(y, Y_hat)
+        topo = self._fusion_topo_evaluation(x, Y_hat)
         
-        # Loss aggregation to build on.
-        batch_loss = loss.mean()
-
-        # For band evaluation.
-        per_band = loss.mean(0)
-
-        self.log("hp_metric", batch_loss, batch_size=loss.size(0))
-        self.log("training/loss/test", batch_loss,
+        self.log("hp_metric", energy.mean(), batch_size=energy.size(0))
+        self.log("test/en", energy.mean(),
                  logger=True, prog_bar=True, on_epoch=True,
-                 on_step=True, batch_size=per_band.size(0))
-        self.log_dict({**{f"training/band_{i}/test": v for i, v in
-                          enumerate(per_band)},
+                 on_step=True, batch_size=energy.size(0))
+        self.log("test/topo", topo.mean(),
+                 logger=True, prog_bar=True, on_epoch=True,
+                 on_step=True, batch_size=topo.size(0))
+        self.log_dict({**{f"test/en/band_{i}": v for i, v in
+                          enumerate(energy.mean(0))},
                        },
                       on_step=True,
                       on_epoch=True,
                       prog_bar=False,
                       logger=True,
-                      batch_size=loss.size(0))
-        
-        # Deep loss should be precisely targeting the radiometry input.
-        # .
-        deep_loss = self._loss(
-            # Additive collapse of activation to radiometry dimensions.
-            self.c384(self._extra_out['a384']),
-            # Downsampled input.
-            y
-        ).mean()
-
-        self.log("training/deep_supervision/test", deep_loss,
-                 logger=True, prog_bar=False, on_epoch=True,
-                 on_step=True, batch_size=per_band.size(0))
-        return batch_loss
+                      batch_size=energy.size(0))
+        self.log_dict({**{f"test/topo/band_{i}": v for i, v in
+                          enumerate(topo.mean(0))},
+                       },
+                      on_step=True,
+                      on_epoch=True,
+                      prog_bar=False,
+                      logger=True,
+                      batch_size=topo.size(0))
+        return energy.mul(topo).mean()
 
     def predict_step(self, batch, batch_idx) -> None:
         indices, (x, y) = batch

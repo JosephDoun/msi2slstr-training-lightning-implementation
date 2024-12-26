@@ -167,3 +167,5 @@ data
 *.tif
 lightning_logs/
 models/
+*.qgz
+

@@ -12,8 +12,6 @@ c. Substitute input with high resolution but maintain multi-level injections.
 from typing import Any
 from lightning import LightningModule
 
-from torch import no_grad
-
 from torch.nn import Conv2d
 from torch.nn import AvgPool2d
 from torch.nn import UpsamplingBilinear2d
@@ -129,7 +127,7 @@ class radiometric_reconstruction_module(LightningModule):
         return concat([x[:, DATA_CONFIG["sen2_bands"]],
                        self._emissivity(self._gauss(x)).detach()], dim=-3)
 
-    def _training_scheme_1(self, x: Tensor):
+    def _training_scheme(self, x: Tensor):
         """
         Reconstruct low res image expected radiometry reinjection in latent
         space.

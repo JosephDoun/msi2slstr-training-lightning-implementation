@@ -13,7 +13,7 @@ class msi2slstr_loss(ssim):
     """
     A loss definition for the task of fusing S2 L1C & S3 RBT/LST images.
 
-    Components: ...
+    DEPRECATED
     """
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)

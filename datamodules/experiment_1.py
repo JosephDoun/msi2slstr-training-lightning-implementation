@@ -15,6 +15,7 @@ from .datasets import predictor_dataset
 
 class msi2slstr_datamodule(LightningDataModule):
     def __init__(self, batch_size: int = 32, datadir: str = 'data',
+                 t_size: tuple[int, int] = (100, 2),
                  num_workers: int = 4) -> None:
         super().__init__()
         self.save_hyperparameters(ignore=["_class_path"])

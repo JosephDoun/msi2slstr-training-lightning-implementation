@@ -199,11 +199,9 @@ class radiometric_reconstruction_module(LightningModule):
         thermal_y = self._emissivity(Down(x))
         thermal_loss = self._loss(thermal_y, y[:, 6:]).mean()
 
-        # Roll over training workflows.
         # Get a) target, b) mangled input, c) radiometry and d) deep target.
         t_in, flat_in, rad_in, deep_in =\
-        self._schemes[batch_idx % len(self._schemes)](
-            self._build_high_res_input(x))
+        self._training_scheme(self._build_high_res_input(x))
 
         # Target prediction.
         Y_hat = self(flat_in, rad_in)
@@ -255,8 +253,7 @@ class radiometric_reconstruction_module(LightningModule):
         # Roll over training workflows.
         # Get a) input, b) mangled input, c) radiometry and d) deep target.
         t_in, flat_in, rad_in, _ =\
-        self._schemes[batch_idx % len(self._schemes)](
-            self._build_high_res_input(x))
+        self._training_scheme(self._build_high_res_input(x))
 
         # Target prediction.
         Y_hat = self(flat_in, rad_in)

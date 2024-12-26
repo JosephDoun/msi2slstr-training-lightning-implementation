@@ -64,7 +64,7 @@ class ReflectiveToEmissive(nn.Module):
 
 
 class SNE(nn.Module):
-    def __init__(self, _in, *args, **kwargs) -> None:
+    def __init__(self, _in, fn: str = 'mean', *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.module = nn.Sequential(
             nn.Linear(_in, _in // 8, bias=False),
@@ -72,11 +72,11 @@ class SNE(nn.Module):
             nn.Linear(_in // 8, _in, bias=False),
             nn.Sigmoid(),
         )
+        self._fn = fn
 
     def forward(self, x: Tensor):
-        return x.mul(self.module(x.std((-1, -2))).view(x.size(0),
-                                                        x.size(1),
-                                                        1, 1))
+        return x.mul(self.module(getattr(x, self._fn)((-1, -2)))
+                     .view(x.size(0), x.size(1), 1, 1))
 
 
 class ReScale2D(nn.Module):

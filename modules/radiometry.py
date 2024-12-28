@@ -72,8 +72,7 @@ class radiometric_reconstruction_module(LightningModule):
         self.u48 = UpsamplingBlock( 96,  48, size)
         self.h12 = Head(48, 12)
 
-        # Helper modules for training.
-        self._match = ReScale2D()
+        # Helper modules.
         self._emissivity = emissivity_module.load_from_checkpoint(
             "pretrained/emissivity.ckpt").module
         self._gauss = AvgPool2d(3, 1, 1, count_include_pad=False)

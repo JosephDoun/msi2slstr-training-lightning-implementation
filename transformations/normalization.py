@@ -62,6 +62,9 @@ class Normalizer(Module):
 
 
 def channel_stretch(_t: Tensor):
+    """
+    Channel-wise stretch to range [0, 1].
+    """
     xoffset = _t.sub(_t.amin((-1, -2), keepdim=True))
     return xoffset.div(xoffset.amax((-1, -2), keepdim=True) + 1e-6)
 

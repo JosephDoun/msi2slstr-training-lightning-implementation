@@ -261,7 +261,7 @@ class ChannelCollapse(nn.Module):
     def forward(self, x: Tensor):
         x = self.resample(x)
         return x.view(x.size(0), self._out, self._range,
-                      x.size(2), x.size(3)).sum(2)
+                      x.size(2), x.size(3)).mean(2)
 
 
 class CrossGatedConcat(nn.Module):

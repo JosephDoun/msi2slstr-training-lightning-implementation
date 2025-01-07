@@ -64,9 +64,9 @@ class radiometric_reconstruction_module(LightningModule):
         self.d48 = DownsamplingBlock(24,  48)
         self.d96 = DownsamplingBlock(48,  96)
         self.d192 = DownsamplingBlock(96, 192)
-        self.e192 = ChannelExpansion(-(-size // 8), 12, 192)
+        self.e180 = ChannelExpansion(-(-size // 8), 12, 180)
+        self.c180 = ChannelCollapse(size // 50, 180, 12)
         self.b384 = Bridge(192, 384)
-        self.c384 = ChannelCollapse(size // 50, 384, 12)
         self.u192 = UpsamplingBlock(384, 192, size // 4)
         self.u96 = UpsamplingBlock(192,  96, size // 2)
         self.u48 = UpsamplingBlock( 96,  48, size)
@@ -76,12 +76,14 @@ class radiometric_reconstruction_module(LightningModule):
         self._emissivity = emissivity_module.load_from_checkpoint(
             "pretrained/emissivity.ckpt").module
         self._gauss = AvgPool2d(3, 1, 1, count_include_pad=False)
+        self._match = ReScale2D()
 
         self._initialize_weights()
         self._loss = cubic_ssim(agg='prod')
         self._fusion_energy_evaluation = fusion_energy_metric(agg='mean')
         self._fusion_topo_evaluation = fusion_topo_metric(agg='mean')
         self._up = UpsamplingBilinear2d((size, size))
+        self._deep_up = UpsamplingBilinear2d((-(-size // 8), -(-size // 8)))
 
     def _initialize_weights(self):
         for _, m in self.named_modules():
@@ -133,10 +135,16 @@ class radiometric_reconstruction_module(LightningModule):
         b = self.d48(a)
         c = self.d96(b)
         x = self.d192(c)
-        x = self.b384(x, self.e192(y))
+
         # Save reference to activation
         # for deep supervision.
-        self._extra_out['a384'] = x
+        xy, xx = x.split_with_sizes((12, 180), dim=1)
+        self._extra_out['a180'] = xx
+ 
+        xx = self._match(xx, self.e180(y))    
+        x = concat([xy.add(self._deep_up(y)), xx], dim=1)
+
+        x = self.b384(x)
         x = self.u192(x, c)
         x = self.u96(x, b)
         x = self.u48(x, a)
@@ -217,9 +225,9 @@ class radiometric_reconstruction_module(LightningModule):
         # .
         deep_loss = self._loss(
             # Additive collapse of activation to radiometry dimensions.
-            self.c384(self._extra_out['a384']),
-            # Downsampled input.
-            deep_in
+            self.c180(self._extra_out['a180']),
+            # Downsampled raw input.
+            Down(flat_in)
         ).mean()
 
         self.log("recon./deep/train", deep_loss,

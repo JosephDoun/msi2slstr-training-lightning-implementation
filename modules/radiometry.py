@@ -162,17 +162,22 @@ class radiometric_reconstruction_module(LightningModule):
         x, y = (self.xnorm(x.cuda()), self.ynorm(y.cuda()))
         
         x = self._build_high_res_input(x)
-        y = Down(x).fill_(0)
-        
-        Y_hat = self(x, y)
+
+        x, x_input, rad_in, _ = self._training_scheme(x)
+        y = rad_in
+
+        Y_hat = self(x_input, y)
 
         tboard: SummaryWriter = self.logger.experiment
 
+        tboard.add_images(tag="training/x_in/train",
+                          img_tensor=channel_stretch(x_input).swapaxes(0, 1),
+                          global_step=self.current_epoch,
+                          dataformats='NCHW')
         tboard.add_images(tag="training/x/train",
                           img_tensor=channel_stretch(x).swapaxes(0, 1),
                           global_step=self.current_epoch,
                           dataformats='NCHW')
-
         tboard.add_images(tag="training/Y_hat/train",
                           img_tensor=channel_stretch(Y_hat).swapaxes(0, 1),
                           global_step=self.current_epoch,

@@ -90,31 +90,20 @@ class radiometric_reconstruction_module(LightningModule):
                 if m.bias is not None:
                     m.bias.data.fill_(.0)
 
-    def _mangle_radiometry(self, x: Tensor):
+    def _mangle_radiometry(self, x: Tensor) -> Tensor:
         """
         Randomly and independently scale, offset and add noise to input data.
+        NOTE: Must not perform inplace operations on input tensor.
         """
-        return x.mul(
-            # Global scaling.
-            rand(x.size(0), x.size(1), 1, 1, device=x.get_device())
-            # .mul(2.)
-            .add(.1)
-        ).add(
-            # Global offsetting.
-            randn(x.size(0), x.size(1), 1, 1, device=x.get_device())
-            .mul(.5)
-        ).add(
+        # Get intensity percentage map.
+        distr = channel_stretch(x).square_()
+        # Force expected value of 1.
+        distr = distr.sub_(distr.mean((-1, -2), keepdim=True)).add_(1.)
+        return x.clone().add_(
             # Low frequency noise.
-            self._up(randn(x.size(0), x.size(1), 4, 4, device=x.device)
-                     .mul(.5))
-                     .mul(
-                         # Only change brighter half of rasters.
-                         # NOTE: Important -- it trains to anchor down the
-                         # low values as adjusted globally and adjusts high
-                         # values to decrease loss. Maintains high
-                         # level of scene cohesion across patches.
-                         ((x - x.mean((-1, -2), keepdim=True)) > 0)
-                         )
+            self._up(randn(x.size(0), x.size(1), 2, 2, device=x.device)
+                     .add_(randn(x.size(0), x.size(1), 1, 1, device=x.device)))
+                     .mul_(distr)
         )
 
     def _build_high_res_input(self, x: Tensor):

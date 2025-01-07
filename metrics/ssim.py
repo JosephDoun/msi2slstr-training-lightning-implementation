@@ -23,7 +23,7 @@ class ssim(Module):
         super().__init__()
         self._agg = agg
         self.dims = dims
-        self.C = 1e-3
+        self.C = 1e-5
         self._a = a
         self._b = b
         self._c = c
@@ -40,9 +40,13 @@ class ssim(Module):
             .squeeze(self.dims))
 
     def l(self, x: Tensor, y: Tensor) -> Tensor:
-        return self._similarity(x.mean(self.dims, keepdim=True),
-                                y.mean(self.dims, keepdim=True))\
-                                .clamp(0)\
+        # Move mean ranges to the positives.
+        xmean = x.mean(self.dims, keepdim=True)
+        ymean = y.mean(self.dims, keepdim=True)
+        # NOTE: Can use adequate constant to avoid min calculation.
+        _min = xmean.minimum(ymean).detach_() - .1
+        return self._similarity(xmean - _min,
+                                ymean - _min)\
                                 .pow(self._a)
 
     def c(self, x: Tensor, y: Tensor) -> Tensor:

@@ -160,7 +160,7 @@ class Head(nn.Module):
 class Bridge(nn.Module):
     def __init__(self, _in: int, _out: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.module = ASPP(_in, _out, 1, 3, 6)
+        self.module = ASPP(_in, _out, 1, 2, 3)
         self.residual = ResidualProj(_in, _out, stride=1)
 
     def forward(self, x):

@@ -37,7 +37,7 @@ from .components import ReScale2D
 from .components import ChannelExpansion
 from .components import ChannelCollapse
 from .components import DownsamplingBlock
-from .components import FusionBridge as Bridge
+from .components import Bridge as Bridge
 from .components import UpsamplingBlock
 from .components import Head
 

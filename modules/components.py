@@ -239,7 +239,7 @@ class ChannelExpansion(nn.Module):
     def __init__(self, size: int, _in: int, _out: int) -> None:
         super().__init__()
         assert not max(_in, _out) % min(_in, _out), "Not divisible."
-        self.resample = nn.UpsamplingBilinear2d((size, size))
+        self.resample = nn.UpsamplingNearest2d((size, size))
         self._range = _out // _in
 
     def forward(self, x: Tensor):

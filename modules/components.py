@@ -4,13 +4,43 @@ from torch import einsum
 from torch import concat
 from torch import Tensor
 from torch import arange
+from torch import randperm
+from torch import ones
+from torch import zeros
 
-from torch.nn import LeakyReLU as Activation
+from torch.nn import Parameter
+from torch.nn import PReLU as Activation
 
 from config import MODEL_CONFIG as CONFIG
 from config import DATA_CONFIG as DATA
 
-from typing import Any
+from typing import Any, Tuple
+
+from torch.nn import Conv2d as _BaseConv2d
+
+from torch.nn.functional import conv2d
+from torch.nn.functional import batch_norm
+
+
+class StdConv2d(_BaseConv2d):
+    def __init__(self, in_channels: int, out_channels: int,
+                 kernel_size: int | Tuple[int, int],
+                 stride: int | Tuple[int, int] = 1,
+                 padding: str | int | Tuple[int, int] = 0,
+                 dilation: int | Tuple[int, int] = 1, groups: int = 1,
+                 bias: bool = True, padding_mode: str = 'zeros',
+                 device=None, dtype=None) -> None:
+        super().__init__(in_channels, out_channels, kernel_size, stride,
+                         padding, dilation, groups, bias, padding_mode,
+                         device, dtype)
+        
+    def forward(self, x: Tensor):
+        weight = (self.weight
+                  .sub(self.weight.mean(dim=(1, 2, 3), keepdim=True))
+                  .div(self.weight.std(dim=(1, 2, 3), keepdim=True)
+                       .add(1e-5)))
+        return conv2d(x, weight, self.bias, self.stride,
+                      self.padding, self.dilation, self.groups)
 
 
 class StaticNorm2D(nn.Module):

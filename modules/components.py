@@ -39,6 +39,29 @@ class StaticNorm2D(nn.Module):
             .add(self.mean[:, channels])
 
 
+class BGNorm(nn.Module):
+    def __init__(self, _in: int, groups: int, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        assert not _in % groups, "in channels not divisible by groups."
+        self._groups = groups
+        self.register_buffer("mu", zeros(groups, requires_grad=False))
+        self.register_buffer("sigma", ones(groups, requires_grad=False))
+        self.register_parameter("a", Parameter(ones(groups)))
+        self.register_parameter("b", Parameter(zeros(groups)))
+
+    def forward(self, x: Tensor):
+        shape = x.shape
+        x = x.view(shape[0], self._groups, -1)
+        return batch_norm(x, # This shape should be (B, G, -1)
+                          self.mu,
+                          self.sigma,
+                          self.a,
+                          self.b,
+                          self.training,
+                          0.01,
+                          1e-8,).view(shape)
+
+
 class ReflectiveToEmissive(nn.Module):
     """
     Given the reflective part of the spectrum corresponding to measurements

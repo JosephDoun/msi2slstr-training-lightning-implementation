@@ -31,11 +31,11 @@ class StaticNorm2D(nn.Module):
         self.register_buffer("var", var)
 
     def forward(self, x: Tensor):
-        return x.sub(self.mean)\
-            .div(self.var + self.e)
+        return (x.sub(self.mean)
+            .div(self.var + self.e))
 
     def denorm(self, x: Tensor, channels: slice | list[int] = slice(None)):
-        return x.mul(self.var[:, channels] + self.e)\
+        return x.mul(self.var[:, channels].add(self.e))\
             .add(self.mean[:, channels])
 
 

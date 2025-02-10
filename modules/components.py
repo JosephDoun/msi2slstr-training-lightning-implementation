@@ -35,10 +35,15 @@ class StdConv2d(_BaseConv2d):
                          device, dtype)
         
     def forward(self, x: Tensor):
-        weight = (self.weight
-                  .sub(self.weight.mean(dim=(1, 2, 3), keepdim=True))
-                  .div(self.weight.std(dim=(1, 2, 3), keepdim=True)
-                       .add(1e-5)))
+        weight = instance_norm(self.weight[None, ...],
+                               None, # Running mean.
+                               None, # Running var.
+                               None, # Weight.
+                               None, # Bias.
+                               True, # Use input stats.
+                               0,    # Momentum.
+                               1e-8)[0]
+
         return conv2d(x, weight, self.bias, self.stride,
                       self.padding, self.dilation, self.groups)
 
@@ -121,7 +126,7 @@ class SNE(nn.Module):
         super().__init__(*args, **kwargs)
         self.module = nn.Sequential(
             nn.Linear(_in, _in // 8, bias=False),
-            Activation(inplace=True),
+            Activation(),
             nn.Linear(_in // 8, _in, bias=False),
             nn.Sigmoid(),
         )

@@ -20,6 +20,7 @@ from torch.nn import Conv2d as _BaseConv2d
 
 from torch.nn.functional import conv2d
 from torch.nn.functional import batch_norm
+from torch.nn.functional import instance_norm
 
 
 class StdConv2d(_BaseConv2d):
@@ -33,19 +34,18 @@ class StdConv2d(_BaseConv2d):
         super().__init__(in_channels, out_channels, kernel_size, stride,
                          padding, dilation, groups, bias, padding_mode,
                          device, dtype)
-        
+
     def forward(self, x: Tensor):
-        weight = instance_norm(self.weight[None, ...],
-                               None, # Running mean.
-                               None, # Running var.
-                               None, # Weight.
-                               None, # Bias.
-                               True, # Use input stats.
-                               0,    # Momentum.
+        self.weight.data = instance_norm(self.weight[None, ...],
+                               None,            # Running mean.
+                               None,            # Running var.
+                               None,            # Weight.
+                               None,            # Bias.
+                               True,            # Use input stats.
+                               0,               # Momentum.
                                1e-8)[0]
 
-        return conv2d(x, weight, self.bias, self.stride,
-                      self.padding, self.dilation, self.groups)
+        return super().forward(x)
 
 
 class StaticNorm2D(nn.Module):

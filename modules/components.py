@@ -36,7 +36,7 @@ class StdConv2d(_BaseConv2d):
                          device, dtype)
 
     def forward(self, x: Tensor):
-        self.weight.data = instance_norm(self.weight[None, ...],
+        weight = instance_norm(self.weight[None, ...],
                                None,            # Running mean.
                                None,            # Running var.
                                None,            # Weight.
@@ -45,7 +45,7 @@ class StdConv2d(_BaseConv2d):
                                0,               # Momentum.
                                1e-8)[0]
 
-        return super().forward(x)
+        return self._conv_forward(x, weight, self.bias)
 
 
 class StaticNorm2D(nn.Module):
@@ -138,19 +138,17 @@ class SNE(nn.Module):
 
 
 class ReScale2D(nn.Module):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, _in, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self.norm = nn.GroupNorm(_in, _in, affine=False)
 
     def forward(self, x: Tensor, ref: Tensor):
         """
         Linearly project `x` to the radiometric scale of `y`;
         """
-        scaled = self.scale_to_one(x)
-        return scaled.mul(ref.abs().amax((-1, -2), keepdim=True))
-    
-    def scale_to_one(self, x: Tensor):
-        offset = x.sub(x.amin((-1, -2), keepdim=True))
-        return offset.div(offset.amax((-1, -2), keepdim=True) + 1e-5)
+        return (self.norm(x)
+                .mul(ref.std((-1, -2), keepdim=True))
+                .add(ref.mean((-1, -2), keepdim=True)))
 
     def __call__(self, x: Tensor, ref: Tensor, *args: Any, **kwds: Any) -> Any:
         return super().__call__(x, ref, *args, **kwds)

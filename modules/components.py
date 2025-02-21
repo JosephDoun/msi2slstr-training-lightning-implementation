@@ -238,57 +238,24 @@ class FusionBridge(Bridge):
 
 
 class Stem(nn.Module):
-    def __init__(self, _in: int, _out: int, *args, **kwargs) -> None:
+    def __init__(self, _in: list[int, int], _out: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.module = nn.Sequential(
-            nn.BatchNorm2d(_in, momentum=CONFIG['BATCHNORM_MOMENT']),
-            nn.Conv2d(_in, _out, kernel_size=3, padding=1,
-                      padding_mode=CONFIG["PADDING_MODE"]),
-            nn.BatchNorm2d(_out, momentum=CONFIG['BATCHNORM_MOMENT']),
-            Activation(inplace=True),
+            nn.Conv2d(_in[0], _out, kernel_size=3, padding=1,
+                      padding_mode="reflect"),
+            BGNorm(_out, 4),
+            Activation(),
             nn.Conv2d(_out, _out, kernel_size=3, padding=1,
-                      padding_mode=CONFIG["PADDING_MODE"])
+                      padding_mode="reflect"),
         )
 
-    def forward(self, x):
-        return self.module(x)
-
-
-class FusionStem(nn.Module):
-    def __init__(self, _in: int, _out: int, fuse_in: int, size: int,
-                 *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.proj_y = ScaledProjection(fuse_in, _in, size)
-        self.module = nn.Sequential(
-            nn.BatchNorm2d(_in * 2, momentum=CONFIG['BATCHNORM_MOMENT']),
-            nn.Conv2d(_in * 2, _out, kernel_size=3, padding=1, groups=2,
-                      padding_mode=CONFIG["PADDING_MODE"]),
-            nn.BatchNorm2d(_out, momentum=CONFIG['BATCHNORM_MOMENT']),
-            Activation(inplace=True),
-            nn.Conv2d(_out, _out, kernel_size=3, padding=1, groups=2,
-                      padding_mode=CONFIG["PADDING_MODE"])
-        )
-        self.residual = ResidualProj(2*_in, _out, stride=1, groups=2)
-
-    def forward(self, x, y):
-        y = self.proj_y(y)
-        x = concat([x, y], dim=-3)
-        return self.module(x).add(self.residual(x))
-
-
-class ScaledProjection(nn.Module):
-    def __init__(self, _in: int, _out: int, size: int, scale: int = 25,
-                 *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.module = nn.Sequential(
-             nn.BatchNorm2d(_in, momentum=CONFIG["BATCHNORM_MOMENT"]),
-             nn.UpsamplingNearest2d((size, size)),
-             nn.Conv2d(_in, _out, kernel_size=3, stride=1, padding=scale,
-                       dilation=scale, padding_mode=CONFIG["PADDING_MODE"])
+        self.mixture = nn.Sequential(
+            nn.Conv2d(_in[1], _out, 1),
+            BGNorm(_out, 4),
         )
 
-    def forward(self, x):
-        return self.module(x)
+    def forward(self, x: list[Tensor, Tensor]):
+        return self.module(x[0]).add(self.mixture(x[1]))
 
 
 class ChannelExpansion(nn.Module):

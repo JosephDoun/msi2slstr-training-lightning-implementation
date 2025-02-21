@@ -158,29 +158,13 @@ class UpsamplingBlock(nn.Module):
                  *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.up = nn.UpsamplingNearest2d((size, size))
-        self.concat = CrossGatedConcat(_in, _out, _out // 2)
-        self.module = DualConv(_in + _out // 2, _out, stride=1)
+        self.attend = LocalAttention(_in, _out // 2)
+        self.module = ResBlock(_in + _out // 2, _out, stride=1)
 
     def forward(self, x, connection):
-        x = self.up(x)
-        x = self.concat(x, connection)
-        return self.module(x)
-    
-
-class FusionUpsamplingBlock(nn.Module):
-    def __init__(self, _in: int, _out: int, size: int,
-                 *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.up = nn.UpsamplingNearest2d((size, size))
-        self.aspp = ASPP(_out // 2, _out // 2, 1, 3, 6)
-        self.concat = CrossGatedConcat(_in, _out, _out // 2)
-        self.module = DualConv(_in + _out // 2, _out, stride=1)
-
-    def forward(self, x, connection):
-        x = self.up(x)
-        connection = self.aspp(connection)
-        x = self.concat(x, connection)
-        return self.module(x)
+        xc = self.attend(x, connection)
+        return self.module(concat([self.up(xc),
+                                   connection], dim=-3))
 
 
 class DownsamplingBlock(nn.Module):

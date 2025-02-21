@@ -18,7 +18,6 @@ from typing import Any, Tuple
 
 from torch.nn import Conv2d as _BaseConv2d
 
-from torch.nn.functional import conv2d
 from torch.nn.functional import batch_norm
 from torch.nn.functional import instance_norm
 

@@ -236,7 +236,7 @@ class ChannelExpansion(nn.Module):
 
     def forward(self, x: Tensor):
         x = self.resample(x)
-        # Repeat channels _in // _out times.
+        # Repeat channels _in // _out times per channel.
         idx = arange(x.size(-3)).reshape(-1, 1)\
             .repeat(1, self._range).flatten()
         return x[:, idx]

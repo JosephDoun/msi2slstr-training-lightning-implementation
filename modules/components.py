@@ -108,12 +108,12 @@ class ReflectiveToEmissive(nn.Module):
     def __init__(self, _in: int, _out: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.module = nn.Sequential(
-            nn.BatchNorm2d(_in, momentum=1e-1),
-            nn.Conv2d(_in, _in * 2, 1),
-            DualConv(_in * 2, _in * 4, kernel_size=1, padding=0),
-            Activation(inplace=True),
-            nn.Conv2d(_in * 4, _out, 1),
-            nn.BatchNorm2d(_out, momentum=1e-1),
+            nn.Conv2d(_in, 16, 1),
+            ResBlock(16, 32, kernel_size=1, padding=0, norm_groups=8),
+            BGNorm(32, 8),
+            Activation(),
+            nn.Conv2d(32, _out, 1),
+            BGNorm(_out, 2)
         )
 
     def forward(self, x: Tensor):

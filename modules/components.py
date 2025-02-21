@@ -197,27 +197,13 @@ class Head(nn.Module):
 
 
 class Bridge(nn.Module):
-    def __init__(self, _in: int, _out: int, *args, **kwargs) -> None:
+    def __init__(self, _in: int, _out: int, size: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.module = ASPP(_in, _out, 1, 2, 3)
-        self.residual = ResidualProj(_in, _out, stride=1)
+        self.module = ASPP(_in, _out, 1, 3, 6)
+        self.y_expansion = ChannelExpansion(size, 12, _in)
 
-    def forward(self, x):
-        return self.module(x).add(self.residual(x))
-
-
-class FusionBridge(Bridge):
-    """
-    Module for the cross attention between the decoder output
-    and the injected radiometry tensor to fuse.
-    """
-    def __init__(self, _in: int, _out: int, *args, **kwargs) -> None:
-        super().__init__(_in*2, _out, *args, **kwargs)
-        self._att = CrossGatedConcat(_in, _out, _in)
-
-    def forward(self, x, i):
-        x = self._att(x, i)
-        return self.module(x).add(self.residual(x))
+    def forward(self, x: Tensor, y: Tensor):
+        return self.module(x + self.y_expansion(y))
 
 
 class Stem(nn.Module):

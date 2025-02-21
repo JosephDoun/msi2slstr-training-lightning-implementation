@@ -248,11 +248,11 @@ class ChannelCollapse(nn.Module):
         assert not max(_in, _out) % min(_in, _out), "Not divisible."
         self.resample = nn.UpsamplingBilinear2d((size, size))
         self._out = _out
-        self._range = _in // _out
+        self._groups = _in // _out
 
     def forward(self, x: Tensor):
         x = self.resample(x)
-        return x.view(x.size(0), self._out, self._range,
+        return x.view(x.size(0), self._out, self._groups,
                       x.size(2), x.size(3)).mean(2)
 
 

@@ -185,11 +185,11 @@ class Head(nn.Module):
     def __init__(self, _in: int, _out: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.module = nn.Sequential(
-            ASPP(_in, _in // 2, 1, 3, 6),
-            nn.BatchNorm2d(_in // 2, momentum=CONFIG['BATCHNORM_MOMENT']),
-            Activation(inplace=True),
-            nn.Conv2d(_in // 2, _out, 1, padding=0),
-            nn.BatchNorm2d(_out, momentum=CONFIG['BATCHNORM_MOMENT'])
+            ASPP(_in, _in // 2, 1, 6, 12),
+            BGNorm(_in // 2, 4),
+            Activation(),
+            nn.Conv2d(_in // 2, _out, 1),
+            BGNorm(_out, 4),
         )
 
     def forward(self, x):

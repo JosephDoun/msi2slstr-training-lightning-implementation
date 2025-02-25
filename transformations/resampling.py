@@ -52,3 +52,17 @@ class SpatialMetric(ValidAverageDownsampling):
     def forward(self, _tensor: Tensor) -> Tensor:
         _tensor = self._reshape(_tensor)
         return getattr(_tensor, self.fn)((-1, -2))
+
+
+class ExpandedSpatialMetric(SpatialMetric):
+    def forward(self, _tensor: Tensor) -> Tensor:
+        return UpsamplingModule(super().forward(_tensor))    
+
+
+class LocalExpandedMaximum(Module):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._max = MaxPool2d(100, 100, padding=0)
+
+    def forward(self, x: Tensor):
+        return UpsamplingModule(self._max(x))

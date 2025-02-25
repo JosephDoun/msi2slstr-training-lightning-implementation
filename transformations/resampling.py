@@ -1,12 +1,14 @@
 from torch.nn import AvgPool2d
 from torch.nn import UpsamplingNearest2d
 from torch.nn import Module
+from torch.nn import MaxPool2d
+
 from torch import Tensor
 
 
-StrictAvgDownSamplingModule = AvgPool2d(50, 50, 0, count_include_pad=False)
-NonStrictAvgDownSamplingModule = AvgPool2d(80, 50, 15, count_include_pad=False)
-UpsamplingModule = UpsamplingNearest2d(scale_factor=50)
+StrictAvgDownSamplingModule = AvgPool2d(100, 100, 0, count_include_pad=False)
+NonStrictAvgDownSamplingModule = AvgPool2d(130, 100, 15, count_include_pad=False)
+UpsamplingModule = UpsamplingNearest2d(scale_factor=100)
 
 
 class ValidAverageDownsampling(Module):
@@ -19,7 +21,8 @@ class ValidAverageDownsampling(Module):
     :type scale: int
     """
 
-    def __init__(self, scale: int = 50) -> None:
+    def __init__(self, scale: int = 100) -> None:
+        super().__init__()
         self.scale = int(scale)
     
     def _reshape(self, _tensor: Tensor):
@@ -38,11 +41,11 @@ class ValidAverageDownsampling(Module):
         return _sum.div(nzerocount.add(1e-10))
 
 
-class SpatialAggregation(ValidAverageDownsampling):
+class SpatialMetric(ValidAverageDownsampling):
     """
     Downsample an input image given a torch operation of choice.
     """
-    def __init__(self, fn: str, scale: int = 50) -> None:
+    def __init__(self, fn: str, scale: int = 100) -> None:
         super().__init__(scale)
         self.fn = fn
 

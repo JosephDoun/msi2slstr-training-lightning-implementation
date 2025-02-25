@@ -1,3 +1,8 @@
+"""
+Metrics module focused on the evaluation of energy conservation.
+"""
+
+from typing import Any
 from torch import Tensor
 from torch import concat
 

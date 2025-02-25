@@ -4,7 +4,7 @@ from osgeo.gdal import Open
 from osgeo.gdal import Dataset as GDataset
 from osgeo.gdal import GA_ReadOnly
 from osgeo.gdal import GA_Update
-from osgeo.gdal import Warp, Translate
+from osgeo.gdal import Translate
 from osgeo.gdal import TermProgress
 
 from osgeo.gdal_array import LoadFile
@@ -123,7 +123,7 @@ def get_files(dirname: str):
         yield sen2filepath, sen3filepath
 
 
-def get_msi2slstr_data(dirname: str, *, t_size: tuple[int] = (100, 2),
+def get_msi2slstr_data(dirname: str, *, t_size: tuple[int] = (300, 3),
                        pad: int = (0, 0)):
     """
     Gather data sources from msi2slstr directory.
@@ -133,7 +133,7 @@ def get_msi2slstr_data(dirname: str, *, t_size: tuple[int] = (100, 2),
                       Image(sen3filepath, t_size=t_size[1], pad=pad[1]))
 
 
-def get_sentinel3_data(dirname: str, *, t_size: int = 2, pad: int = 0):
+def get_sentinel3_data(dirname: str, *, t_size: int = 3, pad: int = 0):
     """
     Gather data sources from msi2slstr directory.
     """
@@ -141,7 +141,7 @@ def get_sentinel3_data(dirname: str, *, t_size: int = 2, pad: int = 0):
         yield Image(sen3filepath, t_size=t_size, pad=pad)
 
 
-def get_sentinel2_data(dirname: str, *, t_size: int = 100, pad: int = 0):
+def get_sentinel2_data(dirname: str, *, t_size: int = 300, pad: int = 0):
     """
     Gather data sources from msi2slstr directory.
     """
@@ -175,7 +175,8 @@ class msi2slstr_dataset(Dataset):
         defaults to `data`.
     :type dirname: str
     """
-    def __init__(self, dirname: str = "data", t_size: tuple[int] = (100, 2),
+    def __init__(self, dirname: str = "data",
+                 t_size: tuple[int] = (300, 3),
                  *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.sources: list[M2SPair] = [pair for pair in
@@ -242,7 +243,7 @@ class sen2dataset(msi2slstr_dataset):
 
 
 class predictor_dataset(msi2slstr_dataset):
-    def __init__(self, dirname: str, t_size=(100, 2), *args, **kwargs):
+    def __init__(self, dirname: str, t_size=(500, 5), *args, **kwargs):
         super().__init__(dirname, t_size=t_size, *args, **kwargs)
         self.output = FusedImage(self.sources[0].sen3source.imagepath,
                                   self.sources[0].sen2source.t_size)
@@ -253,21 +254,3 @@ class predictor_dataset(msi2slstr_dataset):
     def __call__(self, indices: tuple[int], x: Tensor) -> None:
         super().__call__()
         self.output(indices, x)
-
-
-class independent_pairs(Dataset):
-    """
-    Dataset of same-sized independent pairs of Sentinel-2 and Sentinel-3
-    images. For autoencoding.
-    """
-    def __init__(self, size: int = 100) -> None:
-        super().__init__()
-        self._sen2 = sen2dataset(t_size=size)
-        self._sen3 = sen3dataset(t_size=size)
-
-    def __len__(self):
-        return max([len(self._sen2), len(self._sen3)])
-
-    def __getitem__(self, index) -> tuple:
-        return (self._sen2[index % len(self._sen2)],
-                self._sen3[index % len(self._sen3)])

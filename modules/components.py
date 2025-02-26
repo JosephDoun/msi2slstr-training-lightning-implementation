@@ -16,13 +16,11 @@ from config import DATA_CONFIG as DATA
 
 from typing import Any, Tuple
 
-from torch.nn import Conv2d as _BaseConv2d
-
 from torch.nn.functional import batch_norm
 from torch.nn.functional import instance_norm
 
 
-class StdConv2d(_BaseConv2d):
+class StdConv2d(nn.Conv2d):
     def __init__(self, in_channels: int, out_channels: int,
                  kernel_size: int | Tuple[int, int],
                  stride: int | Tuple[int, int] = 1,

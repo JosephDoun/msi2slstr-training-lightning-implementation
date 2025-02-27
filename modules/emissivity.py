@@ -33,10 +33,22 @@ class emissivity_module(LightningModule):
         self.xnorm = StaticNorm2D("sen2")
         self.ynorm = StaticNorm2D("sen3")
         self._extra_out = {}
-        self.module = ReflectiveToEmissive(13, 6)
-        self.save_hyperparameters()
-        self._loss = cubic_ssim(a=1, b=.5, c=2, agg='prod')
 
+        self.module = ReflectiveToEmissive(13, 12)
+        self.save_hyperparameters()
+
+        self._loss = ssim3d(a=1, b=1, c=1, agg='mean')
+
+    def _initialize_weights(self, m):
+        if isinstance(m, Conv2d) and m.weight.requires_grad:
+            m.weight.data.normal_(std=sqrt(2) / sqrt(m.weight.shape[1]))
+            if m.bias is not None:
+                m.bias.data.normal_(std=.01)
+
+    def configure_model(self) -> None:
+        self.apply(self._initialize_weights)
+        return super().configure_model()
+    
     def forward(self, x):
         return self.module(x)
 
@@ -56,32 +68,32 @@ class emissivity_module(LightningModule):
         x = Down(x)
         
         # Randomly dropout a single input band.
-        x[:, randint(13, (1,))].fill_(0)
+        x[arange(x.size(0)), randint(13, size=(x.size(0),))] = 0
 
         # Use directly all corregistered Sentinel-2 bands
         # to estimate thermal emissivity. See above.
         Y_hat = self(x)
         
         # Validate against target thermal emissivity.
-        loss = self._loss(y[:, 6:], Y_hat)
+        loss = self._loss(Y_hat, y)
 
         # Log.
         per_band = loss.mean(0)
         batch_loss = loss.mean()
 
-        self._extra_out["y"] = y[batch_loss.mean(-1).argmax(), 6:]
+        self._extra_out["y"] = y[batch_loss.mean(-1).argmax()]
         self._extra_out["Y_hat"] = Y_hat[batch_loss.mean(-1).argmax()]
 
         self.log("hp_metric", batch_loss, batch_size=loss.size(0))
         self.log("emissivity/train/loss",
                  batch_loss,
                  batch_size=loss.size(0),
-                 on_step=True, prog_bar=True)
+                 on_step=True, on_epoch=True,
+                 prog_bar=True)
 
         self.log_dict({f"emissivity/train_{i}": v for i, v in
                        enumerate(per_band)}, batch_size=loss.size(0),
                        on_step=True)
-
         return batch_loss
 
     def on_train_epoch_end(self) -> None:
@@ -115,19 +127,17 @@ class emissivity_module(LightningModule):
         Y_hat = self(x)
         
         # Validate against real thermal emissivity.
-        loss = self._loss(y[:, 6:], Y_hat)
+        loss = self._loss(Y_hat, y)
 
         # Log.
         per_band = loss.mean(0)
         batch_loss = loss.mean()
 
-        self._extra_out["y"] = y[batch_loss.mean(-1).argmin(), 6:]
-        self._extra_out["Y_hat"] = Y_hat[batch_loss.mean(-1).argmin()]
-
         self.log("emissivity/valid/loss",
                  batch_loss,
                  batch_size=loss.size(0),
-                 on_step=True, prog_bar=True)
+                 on_step=True, on_epoch=True,
+                 prog_bar=True)
 
         self.log_dict({f"emissivity/valid_{i}": v for i, v in
                        enumerate(per_band)}, batch_size=loss.size(0),
@@ -136,4 +146,19 @@ class emissivity_module(LightningModule):
         return batch_loss
 
     def configure_optimizers(self):
-        return Adam(self.parameters(), lr=self.hparams.lr, maximize=True)
+        opt = Adam(self.parameters(), lr=self.hparams.lr, maximize=True)
+        sch = CosineAnnealingWarmRestarts(opt, T_0=100, T_mult=2, eta_min=1e-5)
+        return [opt], [{"scheduler": sch, "interval": "step",
+                        "name": "lr/emis/cosine"}]
+
+    def optimizer_step(self, epoch: int, batch_idx: int,
+                       optimizer: Optimizer,
+                       optimizer_closure: Callable[[], Any] | None = None) -> None:
+        
+        # skip the first 1000 steps
+        if self.trainer.global_step < 500:
+            lr_scale = min(1.0, self.trainer.global_step >= 499 or 0)
+            for pg in optimizer.param_groups:
+                pg["lr"] = lr_scale * self.hparams.lr
+        
+        return super().optimizer_step(epoch, batch_idx, optimizer, optimizer_closure)

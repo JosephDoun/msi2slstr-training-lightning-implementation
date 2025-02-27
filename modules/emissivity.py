@@ -1,9 +1,14 @@
-from typing import Any
+from typing import Any, Callable
 
 from torch import randint
 from torch import Tensor
 from torch.utils.tensorboard.writer import SummaryWriter
 from torch.optim import Adam
+from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
+from torch.optim import Optimizer
+
+from torch.nn import Conv2d
+from torch import arange
 
 from lightning import LightningModule
 
@@ -13,7 +18,9 @@ from transformations.resampling import NonStrictAvgDownSamplingModule as Down
 from .components import StaticNorm2D
 from .components import ReflectiveToEmissive
 
-from metrics.ssim import cubic_ssim
+from metrics.ssim import ssim3d
+
+from math import sqrt
 
 
 class emissivity_module(LightningModule):

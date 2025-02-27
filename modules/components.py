@@ -7,6 +7,7 @@ from torch import arange
 from torch import randperm
 from torch import ones
 from torch import zeros
+from torch import randn_like
 
 from torch.nn import Parameter
 from torch.nn import PReLU as Activation
@@ -18,6 +19,7 @@ from typing import Any, Tuple
 
 from torch.nn.functional import batch_norm
 from torch.nn.functional import instance_norm
+from torch.nn.functional import avg_pool3d
 
 
 class StdConv2d(nn.Conv2d):
@@ -107,11 +109,11 @@ class ReflectiveToEmissive(nn.Module):
         super().__init__(*args, **kwargs)
         self.module = nn.Sequential(
             nn.Conv2d(_in, 16, 1),
-            ResBlock(16, 32, kernel_size=1, padding=0, norm_groups=8),
-            BGNorm(32, 8),
+            ResBlock(16, 32, kernel_size=1, padding=0, groups=8),
+            nn.BatchNorm2d(32),
             Activation(),
             nn.Conv2d(32, _out, 1),
-            BGNorm(_out, 2)
+            nn.BatchNorm2d(_out)
         )
 
     def forward(self, x: Tensor):
@@ -172,11 +174,10 @@ class DownsamplingBlock(nn.Module):
     def __init__(self, _in: int, _out: int, groups: int = 1,
                  *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.residual = ResidualProj(_in, _out, stride=2, groups=groups)
-        self.module = DualConv(_in, _out, stride=2, padding=1, groups=groups)
+        self.module = ResBlock(_in, _out, stride=2, padding=1, groups=groups)
 
     def forward(self, x):
-        return self.module(x).add(self.residual(x))
+        return self.module(x)
 
 
 class Head(nn.Module):
@@ -184,10 +185,10 @@ class Head(nn.Module):
         super().__init__(*args, **kwargs)
         self.module = nn.Sequential(
             ASPP(_in, _in // 2, 1, 6, 12),
-            BGNorm(_in // 2, 4),
+            nn.BatchNorm2d(_in // 2),
             Activation(),
             nn.Conv2d(_in // 2, _out, 1),
-            BGNorm(_out, 4),
+            nn.BatchNorm2d(_out),
         )
 
     def forward(self, x):
@@ -210,19 +211,20 @@ class Stem(nn.Module):
         self.module = nn.Sequential(
             nn.Conv2d(_in[0], _out, kernel_size=3, padding=1,
                       padding_mode="reflect"),
-            BGNorm(_out, 4),
+            nn.BatchNorm2d(_out),
             Activation(),
             nn.Conv2d(_out, _out, kernel_size=3, padding=1,
                       padding_mode="reflect"),
         )
 
-        self.mixture = nn.Sequential(
-            nn.Conv2d(_in[1], _out, 1),
-            BGNorm(_out, 4),
+        self._mixture = nn.Sequential(
+            nn.Conv2d(_in[1], _out, 3, padding=1,
+                      padding_mode='reflect'),
+            nn.BatchNorm2d(_out),
         )
 
     def forward(self, x: list[Tensor, Tensor]):
-        return self.module(x[0]).add(self.mixture(x[1]))
+        return self.module(x[0]).add(self._mixture(x[1]))
 
 
 class ChannelExpansion(nn.Module):
@@ -254,45 +256,43 @@ class ChannelCollapse(nn.Module):
                       x.size(2), x.size(3)).mean(2)
 
 
-class CrossGatedConcat(nn.Module):
-    def __init__(self, _in: int, _out: int, conn_in: int,
+class LocalAttention(nn.Module):
+    def __init__(self, _in: int, conn_in: int,
                  *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.query_x = nn.Sequential(
-            nn.BatchNorm2d(_in, momentum=CONFIG['BATCHNORM_MOMENT']),
-            Activation(inplace=True),
-            nn.Conv2d(_in, _out,
+            nn.BatchNorm2d(_in),
+            Activation(),
+            nn.Conv2d(_in, _in,
                       kernel_size=3,
                       padding=1,
-                      bias=False,
-                      padding_mode=CONFIG['PADDING_MODE']))
+                      padding_mode="reflect"))
 
+        # Stride 2
         self.query_c = nn.Sequential(
-            nn.BatchNorm2d(conn_in, momentum=CONFIG['BATCHNORM_MOMENT']),
-            Activation(inplace=True),
-            nn.Conv2d(conn_in, _out,
+            nn.BatchNorm2d(conn_in),
+            Activation(),
+            nn.Conv2d(conn_in, _in,
                       kernel_size=3,
                       padding=1,
-                      bias=False,
-                      padding_mode=CONFIG['PADDING_MODE']))
+                      padding_mode="reflect",
+                      stride=2))
 
-        self.score = nn.Sequential(
-            nn.BatchNorm2d(_out, momentum=CONFIG['BATCHNORM_MOMENT']),
-            Activation(inplace=True),
-            nn.Conv2d(_out, _in + conn_in,
+        # SoftMax?
+        self.sum = nn.Sequential(
+            nn.BatchNorm2d(_in),
+            Activation(),
+            nn.Conv2d(_in, _in,
                       kernel_size=3,
                       padding=1,
-                      bias=False,
-                      padding_mode=CONFIG['PADDING_MODE']),
+                      padding_mode="reflect"),
             nn.Sigmoid())
-        
+
     def forward(self, x, connection):
         query_x = self.query_x(x)
         query_c = self.query_c(connection)
-        score = self.score(query_c.add(query_x))
-        return einsum("...ji,...ji->...ji",
-                      concat([x, connection], dim=-3),
-                      score)
+        multiplier = self.sum(query_c.add(query_x))
+        return x.mul(multiplier)
 
 
 class ASPP(nn.Module):
@@ -301,26 +301,23 @@ class ASPP(nn.Module):
         super().__init__(*args, **kwargs)
         self.scale_1 = nn.Sequential(
             nn.Conv2d(_in, _out, kernel_size=3, dilation=scale_1,
-                      padding=scale_1, padding_mode=CONFIG['PADDING_MODE']),
-            nn.BatchNorm2d(_out, momentum=CONFIG['BATCHNORM_MOMENT']),
-            Activation(inplace=True),
+                      padding=scale_1, padding_mode="reflect"),
+            nn.BatchNorm2d(_out),
         )
 
         self.scale_2 = nn.Sequential(
             nn.Conv2d(_in, _out, kernel_size=3, dilation=scale_2,
-                      padding=scale_2, padding_mode=CONFIG['PADDING_MODE']),
-            nn.BatchNorm2d(_out, momentum=CONFIG['BATCHNORM_MOMENT']),
-            Activation(inplace=True),
+                      padding=scale_2, padding_mode="reflect"),
+            nn.BatchNorm2d(_out),
         )
 
         self.scale_3 = nn.Sequential(
             nn.Conv2d(_in, _out, kernel_size=3, dilation=scale_3,
-                      padding=scale_3, padding_mode=CONFIG['PADDING_MODE']),
-            nn.BatchNorm2d(_out, momentum=CONFIG['BATCHNORM_MOMENT']),
-            Activation(inplace=True),
+                      padding=scale_3, padding_mode="reflect"),
+            nn.BatchNorm2d(_out),
         )
 
-        self.pool = nn.Conv2d(_out, _out, kernel_size=1, padding=0)
+        self.pool = nn.Conv2d(_out, _out, kernel_size=1)
 
     def forward(self, x):
         x1 = self.scale_1(x)
@@ -329,46 +326,31 @@ class ASPP(nn.Module):
         return self.pool(x1 + x2 + x3)
 
 
-class DualConv(nn.Module):
+class ResBlock(nn.Module):
     def __init__(self, _in: int, _out: int, *, kernel_size: int = 3,
                  stride: int = 1, dilation: int = 1, padding: int = 1,
-                 groups: int = 1, **kwargs) -> None:
-        super().__init__(**kwargs)
+                 groups: int = 1, **kwargs: dict) -> None:
+        super().__init__()
         self.module = nn.Sequential(
-            nn.BatchNorm2d(_in, momentum=CONFIG['BATCHNORM_MOMENT']),
-            Activation(inplace=True),
+            nn.BatchNorm2d(_in),
+            Activation(),
             nn.Conv2d(in_channels=_in, out_channels=_out,
                       kernel_size=kernel_size,
                       padding=padding,
                       stride=stride,
                       dilation=dilation,
-                      padding_mode=CONFIG['PADDING_MODE'],
-                      groups=groups),
-            nn.BatchNorm2d(_out, momentum=CONFIG['BATCHNORM_MOMENT']),
-            Activation(inplace=True),
+                      padding_mode="reflect"),
+            nn.BatchNorm2d(_out),
+            Activation(),
             nn.Conv2d(in_channels=_out, out_channels=_out,
                       kernel_size=kernel_size,
                       padding=1 if kernel_size == 3 else padding,
-                      padding_mode=CONFIG['PADDING_MODE'],
-                      groups=groups))
-        
-    def forward(self, x):
-        return self.module(x)
+                      padding_mode="reflect"))
 
-
-class ResidualProj(nn.Module):
-    """
-    Cheap residual block that projects the data tensor to the necessary shape
-    for connecting to a subsequent module.
-    """
-    
-    def __init__(self, _in: int, _out: int, stride: int, groups: int = 1,
-                 *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.module = nn.Sequential(
-            nn.Conv2d(_in, _out, 1, stride=stride, groups=groups),
-            nn.BatchNorm2d(_out, momentum=CONFIG['BATCHNORM_MOMENT'])
+        self.residual = nn.Sequential(
+            nn.Conv2d(_in, _out, 1, stride=stride, groups=16),
+            nn.BatchNorm2d(_out),
         )
 
     def forward(self, x):
-        return self.module(x)
+        return self.module(x).add(self.residual(x))

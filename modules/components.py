@@ -205,6 +205,19 @@ class Bridge(nn.Module):
         return self.module(x + self.y_expansion(y))
 
 
+class VariationalBridge(nn.Module):
+    def __init__(self, _in: int, _out: int, size: int, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.module = ASPP(_in, _out, 1, 3, 6)
+        self.y_expansion = ChannelExpansion(size, 12, _in)
+        self.near_up = nn.UpsamplingNearest2d((size, size))
+
+    def forward(self, x: Tensor, y: Tensor):
+        y = self.y_expansion(y)
+        r = y + randn_like(y) * y.std(-3, keepdim=True).mul(.5).exp()
+        return self.module(r)
+
+
 class Stem(nn.Module):
     def __init__(self, _in: list[int, int], _out: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)

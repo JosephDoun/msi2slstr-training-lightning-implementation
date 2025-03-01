@@ -131,18 +131,28 @@ class radiometric_reconstruction_module(LightningModule):
         return concat([x[:, DATA_CONFIG["sen2_bands"]],
                        self._emissivity(self._gauss(x)).detach()], dim=-3)
 
-    def _training_scheme(self, x: Tensor):
+    def _training_scheme(self, x: Tensor, y: Tensor):
         """
         Reconstruct low res image expected radiometry reinjection in latent
         space.
         """
         # Leveled input: Randomly scale input channels
         # to lose radiometric info.
-        flat_in = self._mangle_radiometry(x)
+        flat_in, alteration = self._mangle_radiometry(x)
         
-        # Downsampled input as radiometric information..
+        # Mean correction to be in line with real y.
+        # Could be beneficial to learn realistic spectral signature tendencies.
+        x = (x -
+             x.mean((-1, -2), keepdim=True) +
+             y.mean((-1, -2), keepdim=True))
+
+        # Downsampled input as radiometric information to be injected.
         rad_in = Down(x)
-        return x, flat_in, rad_in, rad_in
+
+        return (x,
+                flat_in,
+                rad_in,
+                alteration)
 
     def forward(self, x: Tensor, y: Tensor) -> Any:
         a = self.s16(x)

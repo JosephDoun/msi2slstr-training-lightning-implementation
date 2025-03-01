@@ -9,10 +9,8 @@ from torch import ones
 from torch import zeros
 from torch import randn_like
 
-from torch.nn import Parameter
 from torch.nn import PReLU as Activation
 
-from config import MODEL_CONFIG as CONFIG
 from config import DATA_CONFIG as DATA
 
 from typing import Any, Tuple
@@ -102,10 +100,10 @@ class ReflectiveToEmissive(nn.Module):
         self.module = nn.Sequential(
             nn.Conv2d(_in, 16, 1),
             ResBlock(16, 32, kernel_size=1, padding=0, groups=8),
-            nn.BatchNorm2d(32),
+            BGNorm(32, 1),
             Activation(),
             nn.Conv2d(32, _out, 1),
-            nn.BatchNorm2d(_out)
+            BGNorm(_out, 1)
         )
 
     def forward(self, x: Tensor):
@@ -177,10 +175,10 @@ class Head(nn.Module):
         super().__init__(*args, **kwargs)
         self.module = nn.Sequential(
             ASPP(_in, _in // 2, 1, 6, 12),
-            nn.BatchNorm2d(_in // 2),
+            BGNorm(_in // 2, 1),
             Activation(),
             nn.Conv2d(_in // 2, _out, 1),
-            nn.BatchNorm2d(_out),
+            BGNorm(_out, 1),
         )
 
     def forward(self, x):
@@ -216,7 +214,7 @@ class Stem(nn.Module):
         self.module = nn.Sequential(
             nn.Conv2d(_in[0], _out, kernel_size=3, padding=1,
                       padding_mode="reflect"),
-            nn.BatchNorm2d(_out),
+            BGNorm(_out, 1),
             Activation(),
             nn.Conv2d(_out, _out, kernel_size=3, padding=1,
                       padding_mode="reflect"),
@@ -225,7 +223,7 @@ class Stem(nn.Module):
         self._mixture = nn.Sequential(
             nn.Conv2d(_in[1], _out, 3, padding=1,
                       padding_mode='reflect'),
-            nn.BatchNorm2d(_out),
+            BGNorm(_out, 1),
         )
 
     def forward(self, x: list[Tensor, Tensor]):
@@ -266,7 +264,7 @@ class LocalAttention(nn.Module):
                  *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.query_x = nn.Sequential(
-            nn.BatchNorm2d(_in),
+            BGNorm(_in, 1),
             Activation(),
             nn.Conv2d(_in, _in,
                       kernel_size=3,
@@ -275,7 +273,7 @@ class LocalAttention(nn.Module):
 
         # Stride 2
         self.query_c = nn.Sequential(
-            nn.BatchNorm2d(conn_in),
+            BGNorm(conn_in, 1),
             Activation(),
             nn.Conv2d(conn_in, _in,
                       kernel_size=3,
@@ -285,7 +283,7 @@ class LocalAttention(nn.Module):
 
         # SoftMax?
         self.sum = nn.Sequential(
-            nn.BatchNorm2d(_in),
+            BGNorm(_in, 1),
             Activation(),
             nn.Conv2d(_in, _in,
                       kernel_size=3,
@@ -307,19 +305,19 @@ class ASPP(nn.Module):
         self.scale_1 = nn.Sequential(
             nn.Conv2d(_in, _out, kernel_size=3, dilation=scale_1,
                       padding=scale_1, padding_mode="reflect"),
-            nn.BatchNorm2d(_out),
+            BGNorm(_out, 1),
         )
 
         self.scale_2 = nn.Sequential(
             nn.Conv2d(_in, _out, kernel_size=3, dilation=scale_2,
                       padding=scale_2, padding_mode="reflect"),
-            nn.BatchNorm2d(_out),
+            BGNorm(_out, 1),
         )
 
         self.scale_3 = nn.Sequential(
             nn.Conv2d(_in, _out, kernel_size=3, dilation=scale_3,
                       padding=scale_3, padding_mode="reflect"),
-            nn.BatchNorm2d(_out),
+            BGNorm(_out, 1),
         )
 
         self.pool = nn.Conv2d(_out, _out, kernel_size=1)
@@ -337,7 +335,7 @@ class ResBlock(nn.Module):
                  groups: int = 1, **kwargs: dict) -> None:
         super().__init__()
         self.module = nn.Sequential(
-            nn.BatchNorm2d(_in),
+            BGNorm(_in, 1),
             Activation(),
             nn.Conv2d(in_channels=_in, out_channels=_out,
                       kernel_size=kernel_size,
@@ -345,7 +343,7 @@ class ResBlock(nn.Module):
                       stride=stride,
                       dilation=dilation,
                       padding_mode="reflect"),
-            nn.BatchNorm2d(_out),
+            BGNorm(_out, 1),
             Activation(),
             nn.Conv2d(in_channels=_out, out_channels=_out,
                       kernel_size=kernel_size,
@@ -354,7 +352,7 @@ class ResBlock(nn.Module):
 
         self.residual = nn.Sequential(
             nn.Conv2d(_in, _out, 1, stride=stride, groups=16),
-            nn.BatchNorm2d(_out),
+            BGNorm(_out, 1),
         )
 
     def forward(self, x):

@@ -9,15 +9,28 @@ b. Remove radiometry information from input and reinject in latent spaces.
 c. Substitute input with high resolution but maintain multi-level injections.
 
 """
-from typing import Any
+from typing import Any, Callable
 from lightning import LightningModule
+from lightning.pytorch.core.optimizer import LightningOptimizer
+
+from random import choice
 
 from torch.nn import Conv2d
 from torch.nn import AvgPool2d
 from torch.nn import UpsamplingBilinear2d
+from torch.nn import UpsamplingNearest2d
 
 from torch.optim import Adam
+
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
+from torch.optim.lr_scheduler import OneCycleLR
+from torch.optim.lr_scheduler import CyclicLR
+
+from torchvision.transforms.functional import hflip
+from torchvision.transforms.functional import vflip
+from torchvision.transforms.functional import rotate
+
+from torch.optim.optimizer import Optimizer
 from torch.utils.tensorboard.writer import SummaryWriter
 from torch.utils.data import DataLoader
 
@@ -25,65 +38,66 @@ from math import sqrt
 
 from torch import rand
 from torch import randn
+from torch import randn_like
 from torch import randint
 from torch import zeros
 from torch import concat
+from torch import arange
 from torch import Tensor
+from torch import no_grad
 
 from .components import ReflectiveToEmissive
 from .components import StaticNorm2D
 from .components import Stem
-from .components import ReScale2D
-from .components import ChannelExpansion
-from .components import ChannelCollapse
 from .components import DownsamplingBlock
-from .components import Bridge as Bridge
+from .components import VariationalBridge as Bridge
 from .components import UpsamplingBlock
 from .components import Head
 
 from .emissivity import emissivity_module
 
 from config import DATA_CONFIG
-from metrics.ssim import cubic_ssim
+from metrics.ssim import ssim3d
 from metrics.fusion import fusion_energy_metric
 from metrics.fusion import fusion_topo_metric
 from transformations.normalization import channel_stretch
-from transformations.resampling import NonStrictAvgDownSamplingModule as Down
+from transformations.resampling import StrictAvgDownSamplingModule as Down
+from transformations.resampling import ExpandedSpatialMetric as SpatialMetric
 
 
 class radiometric_reconstruction_module(LightningModule):
-    def __init__(self, lr: float = 1e-3, size: int = 100, strict: bool = True,
-                 *args: Any, **kwargs: Any) -> None:
+    def __init__(self, lr: float = 1e-3, size: int = 300, strict: bool = True,
+                 w_decay: float = 1e-5, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.save_hyperparameters()
         self.strict_loading = strict
         self._extra_out = {}
         self.xnorm = StaticNorm2D("sen2")
         self.ynorm = StaticNorm2D("sen3")
-        self.s24 = Stem(12, 24)
-        self.d48 = DownsamplingBlock(24,  48)
-        self.d96 = DownsamplingBlock(48,  96)
-        self.d192 = DownsamplingBlock(96, 192)
-        self.e180 = ChannelExpansion(-(-size // 8), 12, 180)
-        self.c180 = ChannelCollapse(size // 50, 180, 12)
-        self.b384 = Bridge(192, 384)
-        self.u192 = UpsamplingBlock(384, 192, size // 4)
-        self.u96 = UpsamplingBlock(192,  96, size // 2)
-        self.u48 = UpsamplingBlock( 96,  48, size)
-        self.h12 = Head(48, 12)
+        self.s16 = Stem([12, 13], 16)
+        self.d32 = DownsamplingBlock(16,  32)
+        self.d64 = DownsamplingBlock(32,  64)
+        self.d128 = DownsamplingBlock(64, 128)
+        self.b256 = Bridge(144, 256, -(-size // 8))
+        self.u128 = UpsamplingBlock(256, 128, size // 4)
+        self.u64 = UpsamplingBlock(128,  64, size // 2)
+        self.u32 = UpsamplingBlock( 64,  32, size)
+        self.h12 = Head(32, 12)
 
         # Helper modules.
+        # TODO rename to template generator & move to top.
         self._emissivity = emissivity_module.load_from_checkpoint(
             "pretrained/emissivity.ckpt").module
-        self._gauss = AvgPool2d(3, 1, 1, count_include_pad=False)
-        self._match = ReScale2D()
 
-        self._initialize_weights()
-        self._loss = cubic_ssim(agg='prod')
+        self._loss = ssim3d(agg='mean')
         self._fusion_energy_evaluation = fusion_energy_metric(agg='mean')
         self._fusion_topo_evaluation = fusion_topo_metric(agg='mean')
-        self._up = UpsamplingBilinear2d((size, size))
-        self._deep_up = UpsamplingBilinear2d((-(-size // 8), -(-size // 8)))
+        self._to_top_size = UpsamplingBilinear2d((size, size))
+        self._to_bottom_size = UpsamplingNearest2d((-(-size // 8),
+                                                    -(-size // 8)))
+        self._cell_avg = SpatialMetric("mean")
+        self._cell_min = SpatialMetric("amin")
+        self._cell_max = SpatialMetric("amax")
 
     def _initialize_weights(self):
         for _, m in self.named_modules():
@@ -131,23 +145,14 @@ class radiometric_reconstruction_module(LightningModule):
         return x, flat_in, rad_in, rad_in
 
     def forward(self, x: Tensor, y: Tensor) -> Any:
-        a = self.s24(x)
-        b = self.d48(a)
-        c = self.d96(b)
-        x = self.d192(c)
-
-        # Save reference to activation
-        # for deep supervision.
-        xy, xx = x.split_with_sizes((12, 180), dim=1)
-        self._extra_out['a180'] = xx
- 
-        xx = self._match(xx, self.e180(y))    
-        x = concat([xy.add(self._deep_up(y)), xx], dim=1)
-
-        x = self.b384(x)
-        x = self.u192(x, c)
-        x = self.u96(x, b)
-        x = self.u48(x, a)
+        a = self.s16(x)
+        b = self.d32(a)
+        c = self.d64(b)
+        x = self.d128(c)
+        x = self.b256(x, self._to_bottom_size(y))
+        x = self.u128(x, c)
+        x = self.u64(x, b)
+        x = self.u32(x, a)
         x = self.h12(x)
         return x
 
@@ -337,8 +342,21 @@ class radiometric_reconstruction_module(LightningModule):
 
     def configure_optimizers(self):
         opt = Adam(self.parameters(), lr=self.hparams.lr, maximize=True,
-                    betas=(.9, .98), weight_decay=1e-10, eps=1e-6)
-        sch1 = CosineAnnealingWarmRestarts(opt, T_0=100, T_mult=2,
-                                           eta_min=1e-8)
-        return [opt], [{"scheduler": sch1, "interval": "step"}]
+                    betas=(.9, .999), weight_decay=self.hparams.w_decay,
+                    eps=1e-8)
 
+        sch = CosineAnnealingWarmRestarts(opt, 100, 2, 1e-6)
+        sch = {"scheduler": sch, "interval": "step", "name": "lr/radiometry"}
+        return [opt], [sch]
+    
+    def optimizer_step(self, epoch: int, batch_idx: int,
+                       optimizer: Optimizer | LightningOptimizer,
+                       optimizer_closure: Callable[[], Any] | None = None) -> None:
+        
+        # skip the first 1000 steps
+        if self.trainer.global_step < 500:
+            lr_scale = min(1.0, self.trainer.global_step >= 499 or 0)
+            for pg in optimizer.param_groups:
+                pg["lr"] = lr_scale * self.hparams.lr
+        
+        return super().optimizer_step(epoch, batch_idx, optimizer, optimizer_closure)

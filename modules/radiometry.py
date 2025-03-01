@@ -160,27 +160,26 @@ class radiometric_reconstruction_module(LightningModule):
         """
         Execute a sample prediction and log images.
         """
-        # Run one extra sample during epoch end.
+        # Run one extra sample at epoch end.
         loader: DataLoader = self.trainer.train_dataloader
         data, _ = loader.dataset[0]
         x, y = data
         x, y = (self.xnorm(x.cuda()), self.ynorm(y.cuda()))
         
-        x = self._build_high_res_input(x)
+        template = self._build_high_res_target(x, y)
 
-        x, x_input, rad_in, _ = self._training_scheme(x)
-        y = rad_in
+        template, h_input, radin, alteration = self._training_scheme(template, y)
 
-        Y_hat = self(x_input, y)
+        Y_hat = self([h_input, x], radin)
 
         tboard: SummaryWriter = self.logger.experiment
 
-        tboard.add_images(tag="training/x_in/train",
-                          img_tensor=channel_stretch(x_input).swapaxes(0, 1),
+        tboard.add_images(tag="training/rad_in/train",
+                          img_tensor=channel_stretch(radin).swapaxes(0, 1),
                           global_step=self.current_epoch,
                           dataformats='NCHW')
         tboard.add_images(tag="training/x/train",
-                          img_tensor=channel_stretch(x).swapaxes(0, 1),
+                          img_tensor=channel_stretch(h_input).swapaxes(0, 1),
                           global_step=self.current_epoch,
                           dataformats='NCHW')
         tboard.add_images(tag="training/Y_hat/train",

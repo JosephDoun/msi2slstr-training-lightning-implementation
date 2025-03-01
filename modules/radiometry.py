@@ -109,20 +109,44 @@ class radiometric_reconstruction_module(LightningModule):
     def _mangle_radiometry(self, x: Tensor) -> Tensor:
         """
         Randomly and independently scale, offset and add noise to input data.
-        NOTE: Must not perform inplace operations on input tensor.
+        NOTE: Must not perform inplace operations on x.
         """
-        # Get intensity percentage map.
-        distr = channel_stretch(x).square_()
-        # Force expected value of 1.
-        distr = distr.sub_(distr.mean((-1, -2), keepdim=True)).add_(1.)
-        return x.clone().add_(
-            # Low frequency noise.
-            self._up(randn(x.size(0), x.size(1), 2, 2, device=x.device)
-                     .add_(randn(x.size(0), x.size(1), 1, 1, device=x.device)))
-                     .mul_(distr)
+        # Shift each cell to have minimum value 0.
+        cell_map = x.sub(self._cell_min(x))
+        scene_map = x.sub(x.amin((-1, -2), keepdim=True))
+
+        # Scale to [0, 1].
+        cell_map = cell_map.div(self._cell_max(cell_map).add(1e-5))
+        scene_map = scene_map.div(
+            scene_map.amax((-1, -2), keepdim=True)
+            .add(1e-5))
+
+        # Remove weight from bottom values.
+        cell_map = cell_map.where(cell_map.gt(.2), 0.)
+        scene_map = scene_map.gt(.2)
+
+        alterations = (
+
+            # Expanded low frequency noise.
+            self._to_top_size(randn(x.size(0), x.size(1),
+                                    x.size(2) // 100,
+                                    x.size(2) // 100,
+                                    device=x.device))
+
+            # Weigh by combined per-cell contribution map.
+            .mul(cell_map.mul(scene_map))
         )
 
-    def _build_high_res_input(self, x: Tensor):
+        # New altered model input. DO NOT COPY.
+        _input_tensor = x.add( alterations )\
+                .add(
+                    # Channel offsets.
+                    randn(x.size(0), x.size(1), 1, 1, device=x.device)
+                    )
+
+        return (_input_tensor), alterations
+
+    def _build_high_res_target(self, x: Tensor, y: Tensor):
         """
         Constructs the expected input for the fusion task of Sentinel-2/3
         inputs.

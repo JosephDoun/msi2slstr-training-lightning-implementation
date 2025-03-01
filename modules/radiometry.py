@@ -194,24 +194,29 @@ class radiometric_reconstruction_module(LightningModule):
         """
         # Expects regular msi2slstr corregistered data.
         data, metadata = batch
-        dates, tiles = metadata
+        # dates, tiles = metadata
 
-        x, y = (self.xnorm(data[0]), self.ynorm(data[1]))
+        x, y = self.xnorm(data[0]), self.ynorm(data[1])
+
+        x, y = self._augment(x, y)
 
         # Thermal extrapolation helper.
-        # Train the module on size 100x100 Y.
+        # Trains over the low resolution input.
+        # TODO rename.
         thermal_y = self._emissivity(Down(x))
-        thermal_loss = self._loss(thermal_y, y[:, 6:]).mean()
+        thermal_loss = self._loss(thermal_y, y).mean()
 
-        # Get a) target, b) mangled input, c) radiometry and d) deep target.
-        t_in, flat_in, rad_in, deep_in =\
-        self._training_scheme(self._build_high_res_input(x))
+        # Goes over the high resolution input and create target Y.
+        target = self._build_high_res_target(x, y)
+        
+        # Get a) pure input, b) mangled input, c) radiometry (downsampled pure input), d) noise introduced.
+        target, h_input, rad_in, alteration = self._training_scheme(target, y)
 
         # Target prediction.
-        Y_hat = self(flat_in, rad_in)
+        Y_hat = self([h_input, x], rad_in)
 
         # Estimated loss.
-        loss = self._loss(t_in, Y_hat)
+        loss = self._loss(Y_hat, target)
 
         # Loss aggregation to build on.
         batch_loss = loss.mean()
@@ -222,6 +227,7 @@ class radiometric_reconstruction_module(LightningModule):
         self.log("recon./train", batch_loss,
                  logger=True, prog_bar=True, on_epoch=True,
                  on_step=True, batch_size=loss.size(0))
+
         self.log_dict({**{f"recon./band_{i}/train": v for i, v in
                           enumerate(per_band)},
                        },
@@ -230,22 +236,21 @@ class radiometric_reconstruction_module(LightningModule):
                       prog_bar=False,
                       logger=True,
                       batch_size=loss.size(0))
-        
-        # Deep loss should be precisely targeting the radiometry input.
-        # .
-        deep_loss = self._loss(
-            # Additive collapse of activation to radiometry dimensions.
-            self.c180(self._extra_out['a180']),
-            # Downsampled raw input.
-            Down(flat_in)
-        ).mean()
 
-        self.log("recon./deep/train", deep_loss,
-                 logger=True, prog_bar=False, on_epoch=True,
-                 on_step=True, batch_size=loss.size(0))
+        # # Deep loss should be precisely targeting the downsampled model input.
+        # deep_loss = self._loss(
+        #     # Additive collapse of activation to radiometry dimensions.
+        #     self.c192(self._extra_out['a192']),
+        #     # Downsampled raw input.
+        #     Down(h_input)
+        # ).mean()
 
-        return batch_loss.add(deep_loss).add(thermal_loss)
-    
+        # self.log("recon./deep/train", deep_loss,
+        #          logger=True, prog_bar=False, on_epoch=True,
+        #          on_step=True, batch_size=loss.size(0))
+
+        return batch_loss.add(thermal_loss) #.add(deep_loss)
+
     def validation_step(self, batch, batch_idx) -> Tensor:
         """
         Validate reconstruction process.
@@ -254,16 +259,17 @@ class radiometric_reconstruction_module(LightningModule):
         x, y = batch
         x, y = (self.xnorm(x), self.ynorm(y))
 
-        # Roll over training workflows.
-        # Get a) input, b) mangled input, c) radiometry and d) deep target.
-        t_in, flat_in, rad_in, _ =\
-        self._training_scheme(self._build_high_res_input(x))
+        target = self._build_high_res_target(x, y)
+
+        # Get training inputs:
+        # a) target, b) mangled input, c) radiometric injection, d) alteration tensor
+        target, h_input, rad_in, _ = self._training_scheme(target, y)
 
         # Target prediction.
-        Y_hat = self(flat_in, rad_in)
-        
+        Y_hat = self([h_input, x], rad_in)
+
         # Estimated loss.
-        loss = self._loss(t_in, Y_hat)
+        loss = self._loss(Y_hat, target)
         
         # Loss aggregation to build on.
         batch_loss = loss.mean()
@@ -283,7 +289,7 @@ class radiometric_reconstruction_module(LightningModule):
                       prog_bar=False,
                       logger=True,
                       batch_size=loss.size(0))
-        
+
         return batch_loss
     
     def test_step(self, batch, batch_idx) -> Tensor:
@@ -292,15 +298,17 @@ class radiometric_reconstruction_module(LightningModule):
         """
         data, metadata = batch
         dates, tiles = metadata
+
         x, y = data
         x, y = (self.xnorm(x), self.ynorm(y))
-        x = self._build_high_res_input(x)
+        template = self._build_high_res_target(x, y)
+
         # Target prediction.
-        Y_hat = self(x, y)
-        
+        Y_hat = self([template, x], y)
+
         energy = self._fusion_energy_evaluation(y, Y_hat)
-        topo = self._fusion_topo_evaluation(x, Y_hat)
-        
+        topo = self._fusion_topo_evaluation(template, Y_hat)
+
         self.log("hp_metric", energy.mean(), batch_size=energy.size(0))
         self.log("test/en", energy.mean(),
                  logger=True, prog_bar=True, on_epoch=True,
@@ -330,10 +338,10 @@ class radiometric_reconstruction_module(LightningModule):
         indices, (x, y) = batch
         x, y = self.xnorm(x), self.ynorm(y)
 
-        x = self._build_high_res_input(x)
+        template = self._build_high_res_target(x, y)
 
         # Predict
-        Y_hat = self.ynorm.denorm(self(x, y))
+        Y_hat = self.ynorm.denorm(self([template, x], y))
 
         # Write to output: A writer class should be
         # available to receive the inference product.

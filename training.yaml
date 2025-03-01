@@ -21,11 +21,13 @@ trainer:
         mode: max
         auto_insert_metric_name: false
         monitor: hp_metric
+        save_top_k: 2
     - class_path: ModelCheckpoint
       init_args:
         save_last: false
         dirpath: models
         filename: rrm
+        save_on_train_epoch_end: true
   fast_dev_run: false
   max_epochs: 3
   min_epochs: 0
@@ -61,14 +63,14 @@ trainer:
 model:
   class_path: radiometric_reconstruction_module
   init_args:
-    lr: 2e-3
+    lr: 1e-3
     strict: true
     size: 300
     w_decay: 1e-4
 data:
   class_path: msi2slstr_datamodule
   init_args:
-    batch_size: 8
+    batch_size: 12
     t_size: [300, 3]
 optimizer: null
 lr_scheduler: null

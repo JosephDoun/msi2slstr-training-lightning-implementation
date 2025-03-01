@@ -26,7 +26,7 @@ class msi2slstr_datamodule(LightningDataModule):
     def setup(self, stage: str) -> None:
         self.train, self.val, self.test = \
             random_split(msi2slstr_dataset(self.hparams.datadir),
-                         [.9, .05, .05],
+                         [.85, .1, .05],
                          Generator().manual_seed(0))
 
     def train_dataloader(self) -> DataLoader:
@@ -43,8 +43,8 @@ class msi2slstr_datamodule(LightningDataModule):
         return DataLoader(self.val,
                           batch_size=self.hparams.batch_size,
                           pin_memory=True,
-                          num_workers=15,
-                          prefetch_factor=4)
+                          num_workers=8,
+                          prefetch_factor=2)
 
     def test_dataloader(self) -> DataLoader:
         return DataLoader(self.test,

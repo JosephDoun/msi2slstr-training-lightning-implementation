@@ -99,12 +99,34 @@ class radiometric_reconstruction_module(LightningModule):
         self._cell_min = SpatialMetric("amin")
         self._cell_max = SpatialMetric("amax")
 
-    def _initialize_weights(self):
-        for _, m in self.named_modules():
-            if isinstance(m, Conv2d) and m.weight.requires_grad:
-                m.weight.data.normal_(std=sqrt(2) / sqrt(m.weight.shape[1]))
-                if m.bias is not None:
-                    m.bias.data.fill_(.0)
+    def configure_model(self) -> None:
+        self.apply(self._initialize_weights)
+        return super().configure_model()
+
+    def _initialize_weights(self, m):
+        if isinstance(m, Conv2d) and m.weight.requires_grad:
+            m.weight.data.normal_(std=sqrt(2) / sqrt(m.weight.shape[1]))
+            if m.bias is not None:
+                m.bias.data.normal_(std=.01)
+
+    def on_load_checkpoint(self, checkpoint: dict) -> None:
+        # checkpoint["lr_schedulers"][0]["base_lrs"][0] = self.hparams.lr
+        for param_group in checkpoint['optimizer_states'][0]['param_groups']:
+            param_group['weight_decay'] = self.hparams.w_decay
+            param_group['lr'] = self.hparams.lr
+        return super().on_load_checkpoint(checkpoint)
+
+    def _drop_band(self, x: Tensor):
+        """
+        Drop a random channel from each batch sample.
+        """
+        x[arange(x.size(0)), randint(x.size(1), size=(x.size(0),))] = 0
+        return x
+
+    def _randomize_band(self, x: Tensor):
+        x[arange(x.size(0)), randint(x.size(1), size=(x.size(0),))] =\
+            randn(x.size(0), x.size(2), x.size(3), device=x.device)
+        return x
 
     def _mangle_radiometry(self, x: Tensor) -> Tensor:
         """

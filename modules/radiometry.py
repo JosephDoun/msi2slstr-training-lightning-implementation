@@ -152,8 +152,8 @@ class radiometric_reconstruction_module(LightningModule):
         inputs.
         """
         # Use a filtered version of X to estimate emissivity.
-        return concat([x[:, DATA_CONFIG["sen2_bands"]],
-                       self._emissivity(self._gauss(x)).detach()], dim=-3)
+        with no_grad():
+            return self._emissivity(x).detach()
 
     def _training_scheme(self, x: Tensor, y: Tensor):
         """

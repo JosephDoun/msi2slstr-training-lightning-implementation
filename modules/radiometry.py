@@ -187,7 +187,23 @@ class radiometric_reconstruction_module(LightningModule):
                           img_tensor=channel_stretch(Y_hat).swapaxes(0, 1),
                           global_step=self.current_epoch,
                           dataformats='NCHW')
-    
+        tboard.add_images(tag="training/Y_hat/noise",
+                          img_tensor=channel_stretch(alteration).swapaxes(0, 1),
+                          global_step=self.current_epoch,
+                          dataformats='NCHW')
+
+    def _augment(self, x: Tensor, y: Tensor):
+        x = x.add(randn_like(x).mul(.05))
+        x = self._drop_band(x)
+
+        if rand(1) > .5:
+            x, y = hflip(x), hflip(y)
+
+        if rand(1) > .5:
+            x, y = vflip(x), vflip(y)
+
+        return x, y
+
     def training_step(self, batch, batch_idx) -> Tensor:
         """
         Generalized random training for radiometric recovery.
